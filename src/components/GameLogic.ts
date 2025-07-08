@@ -17,6 +17,10 @@ export class GameLogic {
         position: { x: 12, y: 17 },
         lastMoveTime: 0,
         lastShootTime: 0,
+        health: GAME_CONFIG.PLAYER_MAX_HEALTH,
+        maxHealth: GAME_CONFIG.PLAYER_MAX_HEALTH,
+        isHit: false,
+        hitTime: 0,
       },
       enemies: ENEMY_CONFIGS.map(config => ({
         ...config,
@@ -25,6 +29,10 @@ export class GameLogic {
         lastMoveTime: 0,
         lastShootTime: 0,
         canShoot: true,
+        isHit: false,
+        hitTime: 0,
+        isDestroyed: false,
+        destroyTime: 0,
       })),
       projectiles: [],
       gameStatus: 'playing',
@@ -57,6 +65,14 @@ export class GameLogic {
     if (newState.player.position.y === -1) {
       newState.gameStatus = 'victory';
     }
+
+    // Check level complete condition (all enemies destroyed)
+    if (newState.enemies.length === 0 && newState.gameStatus === 'playing') {
+      newState.gameStatus = 'levelComplete';
+    }
+
+    // Update hit states
+    newState = this.updateHitStates(newState, currentTime);
 
     return newState;
   }
@@ -171,48 +187,131 @@ export class GameLogic {
     return newState;
   }
 
-  private checkCollisions(gameState: GameState): GameState {
+  private updateHitStates(gameState: GameState, currentTime: number): GameState {
     const newState = { ...gameState };
     
+    // Update player hit state
+    if (newState.player.isHit && currentTime - newState.player.hitTime >= GAME_CONFIG.HIT_FLASH_DURATION) {
+      newState.player = {
+        ...newState.player,
+        isHit: false,
+      };
+    }
+    
+    // Update enemy hit states and remove destroyed enemies
+    newState.enemies = gameState.enemies
+      .map(enemy => {
+        let newEnemy = { ...enemy };
+        
+        // Update hit flash
+        if (enemy.isHit && currentTime - enemy.hitTime >= GAME_CONFIG.HIT_FLASH_DURATION) {
+          newEnemy.isHit = false;
+        }
+        
+        return newEnemy;
+      })
+      .filter(enemy => {
+        // Remove enemies that have finished their destroy animation
+        if (enemy.isDestroyed) {
+          return currentTime - enemy.destroyTime < GAME_CONFIG.DESTROY_FADE_DURATION;
+        }
+        return true;
+      });
+    
+    return newState;
+  }
+
+  private checkCollisions(gameState: GameState): GameState {
+    const newState = { ...gameState };
+    const currentTime = Date.now();
+    
     // Check projectile-player collisions
-    const playerHit = gameState.projectiles.some(projectile => 
+    const playerHitProjectiles = gameState.projectiles.filter(projectile => 
       projectile.ownerId !== 'player' && 
       checkCollision(projectile.position, gameState.player.position)
     );
     
-    if (playerHit) {
-      newState.gameStatus = 'gameOver';
-      return newState;
+    if (playerHitProjectiles.length > 0) {
+      newState.player = {
+        ...newState.player,
+        health: Math.max(0, newState.player.health - playerHitProjectiles.length),
+        isHit: true,
+        hitTime: currentTime,
+      };
+      
+      // Remove projectiles that hit the player
+      newState.projectiles = gameState.projectiles.filter(projectile => 
+        !playerHitProjectiles.includes(projectile)
+      );
+      
+      // Check if player is dead
+      if (newState.player.health <= 0) {
+        newState.gameStatus = 'gameOver';
+        return newState;
+      }
     }
     
-    // Check projectile-enemy collisions
-    newState.projectiles = gameState.projectiles.filter(projectile => {
-      const hitEnemy = gameState.enemies.some(enemy => 
-        projectile.ownerId === 'player' && 
-        checkCollision(projectile.position, enemy.position)
-      );
-      return !hitEnemy;
-    });
+    // Check projectile-enemy collisions and damage enemies
+    const projectilesToRemove: Projectile[] = [];
     
-    // Remove hit enemies
-    newState.enemies = gameState.enemies.filter(enemy => {
-      const hit = gameState.projectiles.some(projectile => 
+    newState.enemies = gameState.enemies.map(enemy => {
+      const hitProjectiles = gameState.projectiles.filter(projectile => 
         projectile.ownerId === 'player' && 
-        checkCollision(projectile.position, enemy.position)
+        checkCollision(projectile.position, enemy.position) &&
+        !enemy.isDestroyed
       );
-      if (hit) {
-        newState.score += 100;
+      
+      if (hitProjectiles.length > 0 && !enemy.isDestroyed) {
+        projectilesToRemove.push(...hitProjectiles);
+        
+        const newHealth = Math.max(0, enemy.health - hitProjectiles.length);
+        
+        if (newHealth <= 0) {
+          // Enemy destroyed
+          newState.score += 100;
+          return {
+            ...enemy,
+            health: 0,
+            isDestroyed: true,
+            destroyTime: currentTime,
+            isHit: true,
+            hitTime: currentTime,
+          };
+        } else {
+          // Enemy damaged but not destroyed
+          return {
+            ...enemy,
+            health: newHealth,
+            isHit: true,
+            hitTime: currentTime,
+          };
+        }
       }
-      return !hit;
+      
+      return enemy;
     });
     
-    // Check player-enemy collisions
-    const enemyCollision = gameState.enemies.some(enemy => 
-      checkCollision(enemy.position, gameState.player.position)
+    // Remove projectiles that hit enemies
+    newState.projectiles = gameState.projectiles.filter(projectile => 
+      !projectilesToRemove.includes(projectile)
     );
     
-    if (enemyCollision) {
-      newState.gameStatus = 'gameOver';
+    // Check player-enemy collisions
+    const collidingEnemies = gameState.enemies.filter(enemy => 
+      checkCollision(enemy.position, gameState.player.position) && !enemy.isDestroyed
+    );
+    
+    if (collidingEnemies.length > 0) {
+      newState.player = {
+        ...newState.player,
+        health: Math.max(0, newState.player.health - collidingEnemies.length),
+        isHit: true,
+        hitTime: currentTime,
+      };
+      
+      if (newState.player.health <= 0) {
+        newState.gameStatus = 'gameOver';
+      }
     }
     
     return newState;

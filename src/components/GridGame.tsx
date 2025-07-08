@@ -102,7 +102,7 @@ const GridGame: React.FC = () => {
       }
       
       // Restart key
-      if (key === 'KeyR' && (gameState.gameStatus === 'gameOver' || gameState.gameStatus === 'victory')) {
+      if (key === 'KeyR' && (gameState.gameStatus === 'gameOver' || gameState.gameStatus === 'victory' || gameState.gameStatus === 'levelComplete')) {
         event.preventDefault();
         handleRestart();
       }
@@ -154,9 +154,32 @@ const GridGame: React.FC = () => {
         <div className="mt-2 flex items-center justify-center space-x-4 text-sm text-gray-500">
           <span>Score: {gameState.score}</span>
           <span>•</span>
+          <span>Health: {gameState.player.health}/{gameState.player.maxHealth}</span>
+          <span>•</span>
           <span>Enemies: {gameState.enemies.length}</span>
           <span>•</span>
           <span>Status: {gameState.gameStatus}</span>
+        </div>
+        
+        {/* Health Bar */}
+        <div className="mt-3 flex items-center justify-center space-x-2">
+          <span className="text-sm text-gray-600">Health:</span>
+          <div className="flex space-x-1">
+            {Array.from({ length: gameState.player.maxHealth }, (_, i) => (
+              <div
+                key={i}
+                className={`w-6 h-6 rounded border-2 ${
+                  i < gameState.player.health
+                    ? gameState.player.health === gameState.player.maxHealth
+                      ? 'bg-green-500 border-green-600'
+                      : gameState.player.health > 1
+                      ? 'bg-yellow-500 border-yellow-600'
+                      : 'bg-red-500 border-red-600'
+                    : 'bg-gray-200 border-gray-300'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -210,10 +233,13 @@ const GridGame: React.FC = () => {
             <h3 className="font-medium text-gray-700">Game Rules</h3>
             <div className="space-y-1 text-xs text-gray-600">
               <p>• Reach the top edge to win</p>
-              <p>• Avoid enemy projectiles</p>
+              <p>• Avoid enemy projectiles and collisions</p>
               <p>• Shoot enemies to eliminate them</p>
+              <p>• Player has 3 health points</p>
+              <p>• Enemies have 1 health point each</p>
               <p>• Enemies auto-shoot in line of sight</p>
               <p>• Press R to restart after game over</p>
+              <p>• Defeat all enemies for level complete</p>
             </div>
           </div>
         </div>

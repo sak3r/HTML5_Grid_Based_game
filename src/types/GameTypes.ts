@@ -24,19 +24,29 @@ export interface Enemy {
   lastMoveTime: number;
   lastShootTime: number;
   canShoot: boolean;
+  health: number;
+  maxHealth: number;
+  isHit: boolean;
+  hitTime: number;
+  isDestroyed: boolean;
+  destroyTime: number;
 }
 
 export interface Player {
   position: Position;
   lastMoveTime: number;
   lastShootTime: number;
+  health: number;
+  maxHealth: number;
+  isHit: boolean;
+  hitTime: number;
 }
 
 export interface GameState {
   player: Player;
   enemies: Enemy[];
   projectiles: Projectile[];
-  gameStatus: 'playing' | 'gameOver' | 'victory' | 'paused';
+  gameStatus: 'playing' | 'gameOver' | 'victory' | 'levelComplete' | 'paused';
   score: number;
   level: number;
 }

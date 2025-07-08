@@ -60,7 +60,9 @@ export class GameRenderer {
 
     // Draw patrol radii
     gameState.enemies.forEach(enemy => {
-      this.drawPatrolRadius(enemy);
+      if (!enemy.isDestroyed) {
+        this.drawPatrolRadius(enemy);
+      }
     });
 
     // Draw projectiles
@@ -70,17 +72,23 @@ export class GameRenderer {
 
     // Draw enemies
     gameState.enemies.forEach(enemy => {
-      this.drawCharacter(enemy.position, enemy.color, enemy.borderColor);
+      if (!enemy.isDestroyed) {
+        this.drawEnemy(enemy);
+      } else {
+        this.drawDestroyingEnemy(enemy);
+      }
     });
 
     // Draw player
-    this.drawCharacter(gameState.player.position, COLORS.PLAYER, COLORS.PLAYER_BORDER, true);
+    this.drawPlayer(gameState.player);
 
     // Draw game over overlay if needed
     if (gameState.gameStatus === 'gameOver') {
       this.drawGameOverOverlay();
     } else if (gameState.gameStatus === 'victory') {
       this.drawVictoryOverlay();
+    } else if (gameState.gameStatus === 'levelComplete') {
+      this.drawLevelCompleteOverlay();
     }
   }
 
@@ -99,9 +107,14 @@ export class GameRenderer {
     this.ctx.stroke();
   }
 
-  private drawCharacter(position: Position, color: string, borderColor: string, isPlayer: boolean = false): void {
+  private drawPlayer(player: Player): void {
+    const position = player.position;
     const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
     const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+
+    // Determine color based on hit state
+    const color = player.isHit ? COLORS.HIT_FLASH : COLORS.PLAYER;
+    const borderColor = player.isHit ? COLORS.HIT_FLASH : COLORS.PLAYER_BORDER;
 
     // Shadow
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
@@ -116,11 +129,64 @@ export class GameRenderer {
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
 
-    // Highlight for player
-    if (isPlayer) {
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      this.ctx.fillRect(pixelX + 4, pixelY + 4, GAME_CONFIG.GRID_SIZE - 12, 8);
-    }
+    // Player highlight
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    this.ctx.fillRect(pixelX + 4, pixelY + 4, GAME_CONFIG.GRID_SIZE - 12, 8);
+  }
+
+  private drawEnemy(enemy: Enemy): void {
+    const position = enemy.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+
+    // Determine color based on hit state
+    const color = enemy.isHit ? COLORS.HIT_FLASH : enemy.color;
+    const borderColor = enemy.isHit ? COLORS.HIT_FLASH : enemy.borderColor;
+
+    // Shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Character
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Border
+    this.ctx.strokeStyle = borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+  }
+
+  private drawDestroyingEnemy(enemy: Enemy): void {
+    const currentTime = Date.now();
+    const fadeProgress = Math.min(1, (currentTime - enemy.destroyTime) / GAME_CONFIG.DESTROY_FADE_DURATION);
+    const alpha = 1 - fadeProgress;
+
+    if (alpha <= 0) return;
+
+    const position = enemy.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+
+    // Save context for alpha manipulation
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+
+    // Shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Character (fading)
+    this.ctx.fillStyle = enemy.color;
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Border (fading)
+    this.ctx.strokeStyle = enemy.borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Restore context
+    this.ctx.restore();
   }
 
   private drawProjectile(projectile: Projectile): void {
@@ -161,5 +227,19 @@ export class GameRenderer {
 
     this.ctx.font = '24px Arial';
     this.ctx.fillText('Press R to Play Again', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 50);
+  }
+
+  private drawLevelCompleteOverlay(): void {
+    this.ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+    this.ctx.fillRect(0, 0, GAME_CONFIG.CANVAS_WIDTH, GAME_CONFIG.CANVAS_HEIGHT);
+
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 48px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('LEVEL COMPLETE!', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2);
+
+    this.ctx.font = '24px Arial';
+    this.ctx.fillText('All Enemies Defeated!', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 40);
+    this.ctx.fillText('Press R for Next Level', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 70);
   }
 }
