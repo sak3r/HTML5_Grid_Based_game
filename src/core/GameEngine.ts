@@ -2,7 +2,7 @@ import { GameState, Position, HeroType } from '../types/GameTypes';
 import { Grid } from './Grid';
 import { Player } from './Player';
 import { InputHandler, InputCommand } from './InputHandler';
-import { GameRenderer } from './GameRenderer';
+import { GameRenderer } from '../components/GameRenderer';
 import { GAME_CONFIG } from '../config/GameConfig';
 
 export interface GameEngineConfig {
