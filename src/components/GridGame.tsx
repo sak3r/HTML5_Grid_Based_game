@@ -264,7 +264,7 @@ const GridGame: React.FC = () => {
                 <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-mono">WASD</kbd>
                 <span className="text-gray-600">Move in 4 directions</span>
               </div>
-              <div className="text-xs text-gray-500">500ms per cell movement</div>
+              <div className="text-xs text-gray-500">{gameState.selectedHeroType?.moveSpeed || 500}ms per cell movement</div>
             </div>
           </div>
           
@@ -276,7 +276,7 @@ const GridGame: React.FC = () => {
                 <span className="text-gray-600">Shoot projectiles</span>
               </div>
               <div className="text-xs text-gray-500">200ms projectile speed</div>
-              <div className="text-xs text-gray-500">300ms cooldown between shots</div>
+              <div className="text-xs text-gray-500">{gameState.selectedHeroType?.shootCooldown || 300}ms cooldown between shots</div>
             </div>
           </div>
           
@@ -286,11 +286,12 @@ const GridGame: React.FC = () => {
               <p>• Reach the top edge to win</p>
               <p>• Avoid enemy projectiles and collisions</p>
               <p>• Shoot enemies to eliminate them</p>
-              <p>• Player has 3 health points</p>
+              <p>• Player has {gameState.selectedHeroType?.maxHealth || 3} health points</p>
               <p>• Enemies have 1 health point each</p>
               <p>• Enemies auto-shoot in line of sight</p>
               <p>• Press R to restart after game over</p>
               <p>• Defeat all enemies for level complete</p>
+              <p>• Press ESC to return to hero selection</p>
             </div>
           </div>
         </div>
