@@ -46,6 +46,8 @@ export class GameLogic {
         collected: false,
       })),
       partyHeroes: [],
+      captives: [],
+      activePartyMembers: [],
       activePowerUps: [],
       projectiles: [],
       gameStatus: 'playing',
@@ -83,6 +85,8 @@ export class GameLogic {
       collectibleHeroes: [],
       powerUps: [],
       editorObjects: [],
+      captives: [],
+      activePartyMembers: [],
       selectedObject: null,
       hoveredObject: null,
       isDragging: false,
@@ -121,13 +125,21 @@ export class GameLogic {
     // Update power-ups
     newState = this.updatePowerUps(newState, currentTime);
 
+    // Update captives
+    newState = this.updateCaptives(newState, currentTime);
+
     // Check collisions
     newState = this.checkCollisions(newState);
 
-    // Check win condition (all party members reached top)
-    const allPartyMembersAtExit = this.checkAllPartyMembersAtExit(newState);
-    if (allPartyMembersAtExit) {
+    // Check win condition (player and all active party members reached exit)
+    const allActiveAtExit = this.checkAllActiveAtExit(newState);
+    if (allActiveAtExit) {
       newState.gameStatus = 'victory';
+    }
+
+    // Check game over condition (all characters are captives)
+    if (this.areAllCharactersCaptive(newState)) {
+      newState.gameStatus = 'gameOver';
     }
 
     // Check level complete condition (all enemies destroyed)
@@ -167,6 +179,24 @@ export class GameLogic {
       newState.timerAlerts.at10s = true;
       this.triggerTimerAlert('final', newState.timeRemaining);
     }
+    
+    return newState;
+  }
+
+  private updateCaptives(gameState: GameState, currentTime: number): GameState {
+    const newState = { ...gameState };
+    
+    // Update captive blink states
+    newState.captives = gameState.captives.map(captive => {
+      if (currentTime - captive.lastBlinkTime >= GAME_CONFIG.CAPTIVE_BLINK_INTERVAL) {
+        return {
+          ...captive,
+          blinkState: !captive.blinkState,
+          lastBlinkTime: currentTime,
+        };
+      }
+      return captive;
+    });
     
     return newState;
   }
@@ -337,20 +367,84 @@ export class GameLogic {
     return newState;
   }
 
-  private checkAllPartyMembersAtExit(gameState: GameState): boolean {
+  private checkAllActiveAtExit(gameState: GameState): boolean {
     // Player must be at exit
     if (gameState.player.position.y !== -1) {
       return false;
     }
     
-    // If no party members, just player needs to reach exit
-    if (gameState.partyHeroes.length === 0) {
+    // All active party members must also be at exit
+    for (const partyMember of gameState.activePartyMembers) {
+      if (partyMember.position.y !== -1) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  private areAllCharactersCaptive(gameState: GameState): boolean {
+    // If player health is 0 and no active party members, all are captive
+    if (gameState.player.health <= 0 && gameState.activePartyMembers.length === 0) {
       return true;
     }
     
-    // For now, we'll consider all party members "follow" the player
-    // In a more complex implementation, each party member would have their own position
-    return true;
+    return false;
+  }
+
+  private convertToCaptive(character: Player | HeroType, position: Position, currentTime: number): Captive {
+    let heroType: HeroType;
+    
+    if ('maxHealth' in character) {
+      // It's already a HeroType
+      heroType = character;
+    } else {
+      // It's a Player, need to determine their hero type
+      // For now, we'll use a default hero type - in a full implementation,
+      // the player would have a heroType property
+      heroType = HERO_TYPES[0]; // Default to warrior
+    }
+    
+    return {
+      id: generateId(),
+      position: { ...position },
+      originalHeroType: heroType,
+      rescueRadius: GAME_CONFIG.CAPTIVE_RESCUE_RADIUS,
+      captureTime: currentTime,
+      blinkState: true,
+      lastBlinkTime: currentTime,
+    };
+  }
+
+  private rescueCaptive(gameState: GameState, captive: Captive): GameState {
+    const newState = { ...gameState };
+    
+    // Remove captive from captives list
+    newState.captives = gameState.captives.filter(c => c.id !== captive.id);
+    
+    // Add rescued character as active party member
+    const rescuedMember: Player = {
+      position: { ...captive.position },
+      lastMoveTime: 0,
+      lastShootTime: 0,
+      health: GAME_CONFIG.CAPTIVE_RESCUED_HEALTH,
+      maxHealth: captive.originalHeroType.maxHealth,
+      isHit: false,
+      hitTime: 0,
+    };
+    
+    newState.activePartyMembers = [...gameState.activePartyMembers, rescuedMember];
+    
+    // Add to party heroes list if not already there
+    const heroAlreadyInParty = gameState.partyHeroes.some(hero => hero.id === captive.originalHeroType.id);
+    if (!heroAlreadyInParty) {
+      newState.partyHeroes = [...gameState.partyHeroes, captive.originalHeroType];
+    }
+    
+    // Increase score for rescue
+    newState.score += 500;
+    
+    return newState;
   }
 
   private updateHitStates(gameState: GameState, currentTime: number): GameState {
@@ -508,10 +602,37 @@ export class GameLogic {
         hitTime: currentTime,
       };
       
+      // Convert player to captive if health reaches 0
       if (newState.player.health <= 0) {
-        newState.gameStatus = 'gameOver';
+        const captive = this.convertToCaptive(newState.player, newState.player.position, currentTime);
+        newState.captives = [...newState.captives, captive];
+        
+        // If there are active party members, promote one to be the new player
+        if (newState.activePartyMembers.length > 0) {
+          const newPlayer = newState.activePartyMembers[0];
+          newState.player = { ...newPlayer };
+          newState.activePartyMembers = newState.activePartyMembers.slice(1);
+        }
       }
     }
+    
+    // Check captive rescue collisions
+    const rescuableCapives = gameState.captives.filter(captive => {
+      // Check if player can rescue
+      const playerCanRescue = calculateDistance(captive.position, gameState.player.position) <= captive.rescueRadius;
+      
+      // Check if any active party member can rescue
+      const partyCanRescue = gameState.activePartyMembers.some(member => 
+        calculateDistance(captive.position, member.position) <= captive.rescueRadius
+      );
+      
+      return playerCanRescue || partyCanRescue;
+    });
+    
+    // Rescue captives
+    rescuableCapives.forEach(captive => {
+      newState = this.rescueCaptive(newState, captive);
+    });
     
     return newState;
   }

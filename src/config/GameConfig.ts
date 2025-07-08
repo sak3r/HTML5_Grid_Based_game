@@ -20,6 +20,9 @@ export const GAME_CONFIG: GameConfig = {
   TIMER_WARNING_THRESHOLD: 60, // yellow at 60 seconds
   TIMER_CRITICAL_THRESHOLD: 30, // red at 30 seconds
   TIMER_FINAL_WARNING: 10, // final warning at 10 seconds
+  CAPTIVE_RESCUE_RADIUS: 1, // grid cells
+  CAPTIVE_BLINK_INTERVAL: 500, // ms between blinks
+  CAPTIVE_RESCUED_HEALTH: 1, // health when rescued
 };
 
 export const GRID_COLS = Math.floor(GAME_CONFIG.CANVAS_WIDTH / GAME_CONFIG.GRID_SIZE);
@@ -140,6 +143,10 @@ export const COLORS = {
   EXIT_ZONE_BORDER: '#059669',
   EDITOR_GRID: '#3b82f6',
   EDITOR_SELECTED: '#f59e0b',
+  CAPTIVE_OVERLAY: 'rgba(128, 128, 128, 0.7)',
+  CAPTIVE_BORDER: '#6b7280',
+  RESCUE_RADIUS: 'rgba(34, 197, 94, 0.2)',
+  RESCUE_BORDER: 'rgba(34, 197, 94, 0.4)',
 };
 
 export const ENEMY_CONFIGS = [

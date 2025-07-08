@@ -101,9 +101,19 @@ export class GameRenderer {
       }
     });
 
+    // Draw captives
+    gameState.captives.forEach(captive => {
+      this.drawCaptive(captive);
+    });
+
     // Draw player
     const hasShield = gameState.activePowerUps.some(powerUp => powerUp.type === 'shield');
     this.drawPlayerWithHeroType(gameState.player, gameState.selectedHeroType, hasShield);
+
+    // Draw active party members
+    gameState.activePartyMembers.forEach((member, index) => {
+      this.drawPartyMember(member, index);
+    });
 
     // Draw game over overlay if needed
     if (gameState.gameStatus === 'gameOver') {
@@ -445,6 +455,87 @@ export class GameRenderer {
     this.ctx.shadowBlur = 0;
   }
 
+  private drawCaptive(captive: Captive): void {
+    const position = captive.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+
+    // Draw rescue radius
+    const centerX = pixelX + (GAME_CONFIG.GRID_SIZE / 2);
+    const centerY = pixelY + (GAME_CONFIG.GRID_SIZE / 2);
+    const radius = captive.rescueRadius * GAME_CONFIG.GRID_SIZE;
+
+    this.ctx.fillStyle = COLORS.RESCUE_RADIUS;
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    this.ctx.fill();
+
+    this.ctx.strokeStyle = COLORS.RESCUE_BORDER;
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+
+    // Only draw captive if blinking state is true
+    if (captive.blinkState) {
+      // Shadow
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+      // Character with gray overlay
+      this.ctx.fillStyle = captive.originalHeroType.color;
+      this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+      // Gray overlay to show captive state
+      this.ctx.fillStyle = COLORS.CAPTIVE_OVERLAY;
+      this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+      // Border
+      this.ctx.strokeStyle = COLORS.CAPTIVE_BORDER;
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+      // Captive indicator (chain icon)
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = 'bold 12px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('⛓️', pixelX + GAME_CONFIG.GRID_SIZE / 2, pixelY + GAME_CONFIG.GRID_SIZE / 2 + 4);
+    }
+  }
+
+  private drawPartyMember(member: Player, index: number): void {
+    const position = member.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+
+    // Determine color based on hit state and party member index
+    const baseColor = HERO_TYPES[index % HERO_TYPES.length].color;
+    const baseBorderColor = HERO_TYPES[index % HERO_TYPES.length].borderColor;
+    const color = member.isHit ? COLORS.HIT_FLASH : baseColor;
+    const borderColor = member.isHit ? COLORS.HIT_FLASH : baseBorderColor;
+
+    // Shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Character
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Border
+    this.ctx.strokeStyle = borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Party member indicator
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    this.ctx.fillRect(pixelX + 4, pixelY + 4, GAME_CONFIG.GRID_SIZE - 12, 6);
+
+    // Health indicator
+    const healthRatio = member.health / member.maxHealth;
+    const healthColor = healthRatio > 0.6 ? '#10b981' : healthRatio > 0.3 ? '#f59e0b' : '#ef4444';
+    this.ctx.fillStyle = healthColor;
+    this.ctx.fillRect(pixelX + 4, pixelY + GAME_CONFIG.GRID_SIZE - 8, (GAME_CONFIG.GRID_SIZE - 8) * healthRatio, 4);
+  }
+
   private drawPlayerWithHeroType(player: Player, heroType: HeroType | null, hasShield: boolean = false): void {
     const position = player.position;
     const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
@@ -562,8 +653,8 @@ export class GameRenderer {
     this.ctx.fillText('GAME OVER', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2);
 
     this.ctx.font = '24px Arial';
-    this.ctx.fillText('Time Expired!', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 40);
-    this.ctx.fillText('Press R to Restart', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 80);
+    this.ctx.fillText('All Characters Captured!', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 40);
+    this.ctx.fillText('Press R to Restart', GAME_CONFIG.CANVAS_WIDTH / 2, GAME_CONFIG.CANVAS_HEIGHT / 2 + 70);
   }
 
   private drawVictoryOverlay(): void {

@@ -74,6 +74,16 @@ export interface Player {
   hitTime: number;
 }
 
+export interface Captive {
+  id: string;
+  position: Position;
+  originalHeroType: HeroType;
+  rescueRadius: number;
+  captureTime: number;
+  blinkState: boolean;
+  lastBlinkTime: number;
+}
+
 export interface GameState {
   player: Player;
   enemies: Enemy[];
@@ -81,6 +91,8 @@ export interface GameState {
   collectibleHeroes: CollectibleHero[];
   powerUps: PowerUp[];
   partyHeroes: HeroType[];
+  captives: Captive[];
+  activePartyMembers: Player[];
   activePowerUps: ActivePowerUp[];
   gameStatus: 'playing' | 'gameOver' | 'victory' | 'levelComplete' | 'paused';
   score: number;
