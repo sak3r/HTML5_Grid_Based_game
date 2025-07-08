@@ -388,7 +388,9 @@ const GridGame: React.FC = () => {
           <span>•</span>
           <span>Enemies: {gameState.enemies.length}</span>
           <span>•</span>
-          <span>Party: {gameState.partyHeroes.length}</span>
+          <span>Active: {gameState.activePartyMembers.length + 1}</span>
+          <span>•</span>
+          <span>Captives: {gameState.captives.length}</span>
           <span>•</span>
           <span>Status: {gameState.gameStatus}</span>
         </div>
@@ -429,21 +431,56 @@ const GridGame: React.FC = () => {
           </div>
         </div>
         
-        {/* Party Heroes */}
-        {gameState.partyHeroes.length > 0 && (
+        {/* Active Party Members */}
+        {gameState.activePartyMembers.length > 0 && (
           <div className="mt-3 flex items-center justify-center space-x-2">
-            <span className="text-sm text-gray-600">Party:</span>
+            <span className="text-sm text-gray-600">Active Party:</span>
             <div className="flex space-x-1">
-              {gameState.partyHeroes.map((hero, index) => (
+              {gameState.activePartyMembers.map((member, index) => {
+                const heroType = HERO_TYPES[index % HERO_TYPES.length];
+                return (
                 <div
                   key={index}
-                  className="w-8 h-8 rounded border-2 flex items-center justify-center text-xs font-bold text-white"
+                  className="w-8 h-8 rounded border-2 flex items-center justify-center text-xs font-bold text-white relative"
                   style={{ 
-                    backgroundColor: hero.color, 
-                    borderColor: hero.borderColor 
+                    backgroundColor: heroType.color, 
+                    borderColor: heroType.borderColor 
                   }}
                 >
-                  {hero.name.charAt(0)}
+                  {heroType.name.charAt(0)}
+                  {/* Health indicator */}
+                  <div className="absolute -bottom-1 left-0 right-0 h-1 bg-gray-300 rounded-full">
+                    <div 
+                      className="h-full bg-green-500 rounded-full transition-all duration-300"
+                      style={{ width: `${(member.health / member.maxHealth) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* Captives */}
+        {gameState.captives.length > 0 && (
+          <div className="mt-3 flex items-center justify-center space-x-2">
+            <span className="text-sm text-gray-600">Captives:</span>
+            <div className="flex space-x-1">
+              {gameState.captives.map((captive, index) => (
+                <div
+                  key={captive.id}
+                  className="w-8 h-8 rounded border-2 flex items-center justify-center text-xs font-bold text-white relative opacity-60"
+                  style={{ 
+                    backgroundColor: captive.originalHeroType.color, 
+                    borderColor: '#6b7280'
+                  }}
+                >
+                  {captive.originalHeroType.name.charAt(0)}
+                  {/* Captive indicator */}
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">⛓️</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -547,7 +584,10 @@ const GridGame: React.FC = () => {
               <p>• Collect diamond heroes to build your party</p>
               <p>• Press E to enter level editor mode</p>
               <p>• Collect star power-ups for temporary abilities</p>
-              <p>• All party members must reach the exit to win</p>
+              <p>• Characters become captives when health reaches 0</p>
+              <p>• Walk near captives to rescue them (1 health)</p>
+              <p>• Game over if all characters become captives</p>
+              <p>• All active characters must reach exit to win</p>
             </div>
           </div>
         </div>
@@ -559,8 +599,8 @@ const GridGame: React.FC = () => {
             <p>• Efficient collision detection system</p>
             <p>• Smooth 60fps gameplay with requestAnimationFrame</p>
             <p>• Modular architecture for easy expansion</p>
-            <p>• Dynamic collectible and power-up systems</p>
-            <p>• Strategic party-building mechanics</p>
+            <p>• Captive rescue mechanics inspired by Gain Ground</p>
+            <p>• Strategic party management and rescue gameplay</p>
           </div>
         </div>
       </div>
