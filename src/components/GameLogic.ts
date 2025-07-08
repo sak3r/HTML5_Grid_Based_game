@@ -1,5 +1,6 @@
 // ... [previous code remains the same until the projectiles update section]
 
+    return {
       trajectory,
       currentTrajectoryIndex: 0,
     };
