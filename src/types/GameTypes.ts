@@ -135,7 +135,10 @@ export interface Captive {
 }
 
 export interface GameState {
-  player: Player;
+  player1: Player;
+  player2: Player;
+  currentPlayer: 1 | 2; // For turn-based mode
+  gameMode: 'cooperative' | 'turnBased';
   enemies: Enemy[];
   projectiles: Projectile[];
   collectibleHeroes: CollectibleHero[];
@@ -148,6 +151,8 @@ export interface GameState {
   score: number;
   level: number;
   selectedHeroType: HeroType | null;
+  player1HeroType: HeroType | null;
+  player2HeroType: HeroType | null;
   editorMode: boolean;
   selectedTool: EditorTool;
   editorObjects: EditorObject[];
@@ -165,6 +170,17 @@ export interface GameState {
     at60s: boolean;
     at30s: boolean;
     at10s: boolean;
+  };
+}
+
+export interface CoopGameState extends GameState {
+  sharedScore: number;
+  rescueCount: number;
+  playersAtExit: boolean[];
+  cooperativeObjectives: {
+    allCharactersRescued: boolean;
+    allPlayersAtExit: boolean;
+    allEnemiesDefeated: boolean;
   };
 }
 
