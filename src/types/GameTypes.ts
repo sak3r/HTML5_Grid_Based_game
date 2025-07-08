@@ -8,7 +8,12 @@ export enum WeaponType {
   SPEAR = 'spear',
   BOOMERANG = 'boomerang',
   GRENADE = 'grenade',
-  FLAMETHROWER = 'flamethrower'
+  FLAMETHROWER = 'flamethrower',
+  SNIPER_RIFLE = 'sniper_rifle',
+  THROWING_STAR = 'throwing_star',
+  MAGIC_BOLT = 'magic_bolt',
+  AXE = 'axe',
+  BOW = 'bow'
 }
 
 export interface WeaponConfig {
@@ -25,6 +30,10 @@ export interface WeaponConfig {
   areaEffect: boolean;
   returning: boolean;
   continuous: boolean;
+  pierceWalls: boolean;
+  melee: boolean;
+  parabolic: boolean;
+  multiShot: boolean;
 }
 
 export interface Projectile {
@@ -46,6 +55,12 @@ export interface Projectile {
   explosionRadius?: number;
   flameLength?: number;
   penetratedEnemies?: string[];
+  pierceWalls: boolean;
+  melee: boolean;
+  parabolic: boolean;
+  multiShot: boolean;
+  trajectory?: Position[];
+  currentTrajectoryIndex?: number;
 }
 
 export interface Enemy {
@@ -215,6 +230,8 @@ export interface HeroType {
   shootCooldown: number;
   description: string;
   weaponType: WeaponType;
+  specialAbility: string;
+  role: string;
 }
 
 export interface CollectibleHero {

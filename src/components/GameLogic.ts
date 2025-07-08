@@ -344,8 +344,37 @@ export class GameLogic {
         if (currentTime - projectile.lastMoveTime >= projectile.speed) {
           let newPosition: Position;
           
-          // Handle different weapon movement patterns
-          switch (projectile.weaponType) {
+          // Handle different movement patterns
+          if (projectile.parabolic && projectile.trajectory) {
+            // Parabolic trajectory (bow)
+            const nextIndex = (projectile.currentTrajectoryIndex || 0) + 1;
+            if (nextIndex < projectile.trajectory.length) {
+              newPosition = projectile.trajectory[nextIndex];
+              projectile.currentTrajectoryIndex = nextIndex;
+            } else {
+              newPosition = projectile.position; // End of trajectory
+            }
+          } else if (projectile.returning && projectile.startPosition) {
+            // Boomerang logic
+            const distance = calculateDistance(projectile.startPosition, projectile.position);
+            if (distance >= WEAPON_CONFIGS[projectile.weaponType].range && !projectile.hasReturned) {
+              projectile.hasReturned = true;
+              projectile.direction = getDirectionToTarget(projectile.position, projectile.startPosition);
+            }
+            newPosition = {
+              x: projectile.position.x + projectile.direction.x,
+              y: projectile.position.y + projectile.direction.y,
+            };
+          } else if (projectile.melee) {
+            // Melee weapons don't move after initial placement
+            newPosition = projectile.position;
+          } else {
+            // Standard projectile movement
+            newPosition = {
+              x: projectile.position.x + projectile.direction.x,
+              y: projectile.position.y + projectile.direction.y,
+            };
+          }
             case WeaponType.BOOMERANG:
               newPosition = this.updateBoomerangPosition(projectile, currentTime);
               break;
@@ -373,6 +402,20 @@ export class GameLogic {
         return projectile;
       })
       .filter(projectile => {
+        // Keep projectiles that can pierce walls or are in valid positions
+        if (projectile.pierceWalls) {
+          return projectile.position.x >= 0 && projectile.position.x < GRID_COLS && 
+                 projectile.position.y >= 0 && projectile.position.y < GRID_ROWS;
+        }
+        
+        // Remove melee weapons after short duration
+        if (projectile.melee) {
+          return currentTime - projectile.lastMoveTime < 200;
+        }
+        
+        // Standard boundary check
+        return isValidPosition(projectile.position.x, projectile.position.y);
+      });
         // Different range checks for different weapons
         if (projectile.weaponType === WeaponType.BOOMERANG) {
           // Boomerang returns to sender, remove when it reaches start position after returning
@@ -755,6 +798,16 @@ export class GameLogic {
     if (ownerId === 'player') {
       // This would need to be passed in or retrieved from game state
       // For now, we'll use a parameter or default to rifle
+      weaponType: WeaponType.RIFLE,
+      damage: 1,
+      penetration: false,
+      areaEffect: false,
+      returning: false,
+      continuous: false,
+      pierceWalls: false,
+      melee: false,
+      parabolic: false,
+      multiShot: false,
     }
     
     return {
@@ -781,9 +834,24 @@ export class GameLogic {
   public createProjectileWithWeapon(position: Position, direction: Position, ownerId: string, weaponType: WeaponType): Projectile {
     const weaponConfig = WEAPON_CONFIGS[weaponType];
     
+    // For melee weapons, create projectile at adjacent position
+    let projectilePosition = { ...position };
+    if (weaponConfig.melee) {
+      projectilePosition = {
+        x: position.x + direction.x,
+        y: position.y + direction.y,
+      };
+    }
+    
+    // Calculate parabolic trajectory for bow
+    let trajectory: Position[] | undefined;
+    if (weaponConfig.parabolic) {
+      trajectory = this.calculateParabolicTrajectory(position, direction, weaponConfig.range);
+    }
+    
     return {
       id: generateId(),
-      position: { ...position },
+      position: projectilePosition,
       direction,
       speed: weaponConfig.speed,
       ownerId,
@@ -795,16 +863,23 @@ export class GameLogic {
       areaEffect: weaponConfig.areaEffect,
       returning: weaponConfig.returning,
       continuous: weaponConfig.continuous,
+      pierceWalls: weaponConfig.pierceWalls,
+      melee: weaponConfig.melee,
+      parabolic: weaponConfig.parabolic,
+      multiShot: weaponConfig.multiShot,
       startPosition: weaponConfig.returning || weaponConfig.continuous ? { ...position } : undefined,
       hasReturned: false,
       explosionRadius: weaponConfig.areaEffect ? 2 : undefined,
       penetratedEnemies: [],
     };
+      trajectory,
+      currentTrajectoryIndex: 0,
   }
 
   public getPlayerShootCooldown(gameState: GameState): number {
     const hasRapidFire = gameState.activePowerUps.some(powerUp => powerUp.type === 'rapidFire');
-    
+    const weaponType = gameState.selectedHeroType?.weaponType || WeaponType.RIFLE;
+    const baseCooldown = WEAPON_CONFIGS[weaponType].cooldown;
     // Use weapon-specific cooldown if hero has a weapon type
     let baseCooldown = GAME_CONFIG.SHOOT_COOLDOWN;
     if (gameState.selectedHeroType?.weaponType) {
