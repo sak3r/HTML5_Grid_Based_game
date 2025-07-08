@@ -44,10 +44,10 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ onHeroSelect }) => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
       <div className="text-center mb-8">
         <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-          Choose Your Hero
+          Choose Your Heroes
         </h1>
         <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-          Select a character that matches your playstyle. Each hero has unique stats that will affect your gameplay experience.
+          Select heroes for 2-player cooperative gameplay. Both players will start with the same character type and work together to achieve victory.
         </p>
       </div>
 
@@ -160,8 +160,8 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ onHeroSelect }) => {
 
       <div className="mt-12 text-center">
         <p className="text-gray-400 text-sm max-w-2xl mx-auto">
-          💡 <strong>Tip:</strong> Warriors are great for beginners, Scouts excel at hit-and-run tactics, 
-          and Tanks can absorb more damage but move slower. Choose wisely!
+          💡 <strong>Cooperative Tip:</strong> Both players will control the same hero type initially. 
+          Work together to rescue other character types and build a diverse party for maximum effectiveness!
         </p>
       </div>
     </div>

@@ -106,9 +106,10 @@ export class GameRenderer {
       this.drawCaptive(captive);
     });
 
-    // Draw player
+    // Draw players
     const hasShield = gameState.activePowerUps.some(powerUp => powerUp.type === 'shield');
-    this.drawPlayerWithHeroType(gameState.player, gameState.selectedHeroType, hasShield);
+    this.drawPlayerWithHeroType(gameState.player1, gameState.player1HeroType, hasShield, 1);
+    this.drawPlayerWithHeroType(gameState.player2, gameState.player2HeroType, hasShield, 2);
 
     // Draw active party members
     gameState.activePartyMembers.forEach((member, index) => {
@@ -536,7 +537,7 @@ export class GameRenderer {
     this.ctx.fillRect(pixelX + 4, pixelY + GAME_CONFIG.GRID_SIZE - 8, (GAME_CONFIG.GRID_SIZE - 8) * healthRatio, 4);
   }
 
-  private drawPlayerWithHeroType(player: Player, heroType: HeroType | null, hasShield: boolean = false): void {
+  private drawPlayerWithHeroType(player: Player, heroType: HeroType | null, hasShield: boolean = false, playerNum: number = 1): void {
     const position = player.position;
     const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
     const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
@@ -549,7 +550,7 @@ export class GameRenderer {
 
     // Shield effect
     if (hasShield) {
-      this.ctx.strokeStyle = '#60a5fa';
+      this.ctx.strokeStyle = playerNum === 1 ? '#60a5fa' : '#10b981';
       this.ctx.lineWidth = 3;
       this.ctx.setLineDash([5, 5]);
       this.ctx.strokeRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
@@ -572,6 +573,16 @@ export class GameRenderer {
     // Player highlight
     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     this.ctx.fillRect(pixelX + 4, pixelY + 4, GAME_CONFIG.GRID_SIZE - 12, 8);
+    
+    // Player number indicator
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 10px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(
+      playerNum.toString(), 
+      pixelX + GAME_CONFIG.GRID_SIZE - 8, 
+      pixelY + 12
+    );
   }
 
   private drawEnemy(enemy: Enemy): void {

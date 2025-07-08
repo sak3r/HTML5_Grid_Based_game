@@ -22,36 +22,17 @@ const GridGame: React.FC = () => {
   const [showTimerConfig, setShowTimerConfig] = useState<boolean>(false);
 
   // Handle shooting
-  const handleShooting = useCallback((direction: Position) => {
+  const handleShooting = useCallback((direction: Position, playerNum: 1 | 2 = 1) => {
     if (!gameState) return;
     
-    const currentTime = Date.now();
-    const shootCooldown = gameLogic.current.getPlayerShootCooldown(gameState);
-    
-    if (currentTime - gameState.player.lastShootTime >= shootCooldown) {
-      const weaponType = gameState.selectedHeroType?.weaponType || 'rifle';
-      const projectile = gameLogic.current.createProjectileWithWeapon(
-        gameState.player.position,
-        direction,
-        'player',
-        weaponType
-      );
-      
-      setGameState(prev => ({
-        ...prev!,
-        projectiles: [...prev.projectiles, projectile],
-        player: {
-          ...prev.player,
-          lastShootTime: currentTime,
-        },
-      }));
-    }
-  }, [gameState?.player.lastShootTime, gameState?.player.position]);
+    const newState = gameLogic.current.handleShooting(gameState, playerNum, direction);
+    setGameState(newState);
+  }, [gameState]);
 
   // Handle restart
   const handleRestart = useCallback(() => {
-    if (gameState?.selectedHeroType) {
-      const newState = gameLogic.current.createInitialGameState(gameState.selectedHeroType);
+    if (gameState?.player1HeroType) {
+      const newState = gameLogic.current.createInitialGameState(gameState.player1HeroType, gameState.gameMode);
       // Preserve time limit from current game
       newState.timeLimit = gameState.timeLimit;
       newState.timeRemaining = gameState.timeLimit;
@@ -60,10 +41,10 @@ const GridGame: React.FC = () => {
       setShowHeroSelection(true);
       setGameState(null);
     }
-  }, [gameState?.selectedHeroType]);
+  }, [gameState?.player1HeroType, gameState?.gameMode]);
 
   const handleHeroSelect = useCallback((heroType: HeroType) => {
-    setGameState(gameLogic.current.createInitialGameState(heroType));
+    setGameState(gameLogic.current.createInitialGameState(heroType, 'cooperative'));
     setShowHeroSelection(false);
   }, []);
 
@@ -173,7 +154,7 @@ const GridGame: React.FC = () => {
   const handleSaveLevel = useCallback(() => {
     if (gameState) {
       const levelData = {
-        playerStart: gameState.player.position,
+        playerStart: gameState.player1.position,
         editorObjects: gameState.editorObjects,
       };
       
@@ -239,7 +220,7 @@ const GridGame: React.FC = () => {
       const key = event.code;
       
       // Movement keys
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(key)) {
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(key)) {
         event.preventDefault();
         pressedKeys.current.add(key);
       }
@@ -256,7 +237,22 @@ const GridGame: React.FC = () => {
           case 'ArrowRight': direction = { x: 1, y: 0 }; break;
         }
         
-        handleShooting(direction);
+        handleShooting(direction, 1);
+      }
+      
+      // Player 2 shooting keys (Number pad)
+      if (['Numpad8', 'Numpad2', 'Numpad4', 'Numpad6'].includes(key)) {
+        event.preventDefault();
+        let direction: Position = { x: 0, y: 0 };
+        
+        switch (key) {
+          case 'Numpad8': direction = { x: 0, y: -1 }; break;
+          case 'Numpad2': direction = { x: 0, y: 1 }; break;
+          case 'Numpad4': direction = { x: -1, y: 0 }; break;
+          case 'Numpad6': direction = { x: 1, y: 0 }; break;
+        }
+        
+        handleShooting(direction, 2);
       }
       
       // Diagonal shooting (combinations)
@@ -271,7 +267,7 @@ const GridGame: React.FC = () => {
       }
       
       // Restart key
-      if (key === 'KeyR' && gameState && (gameState.gameStatus === 'gameOver' || gameState.gameStatus === 'victory' || gameState.gameStatus === 'levelComplete')) {
+      if (key === 'KeyR' && gameState && ['gameOver', 'victory', 'levelComplete'].includes(gameState.gameStatus)) {
         event.preventDefault();
         handleRestart();
       }
@@ -298,7 +294,7 @@ const GridGame: React.FC = () => {
 
     const handleKeyUp = (event: KeyboardEvent) => {
       const key = event.code;
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(key)) {
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(key)) {
         event.preventDefault();
         pressedKeys.current.delete(key);
       }
@@ -375,22 +371,24 @@ const GridGame: React.FC = () => {
 
       <div className="mb-6 text-center">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          {gameState.editorMode ? 'Level Editor' : `Enhanced Grid Game - ${gameState.selectedHeroType?.name || 'Unknown Hero'}`}
+          {gameState.editorMode ? 'Level Editor' : `2-Player Cooperative Game - ${gameState.gameMode === 'cooperative' ? 'Cooperative' : 'Turn-Based'}`}
         </h1>
         <p className="text-gray-600">
           {gameState.editorMode 
-            ? 'Click on the grid to place objects • E to toggle editor • Test your level when ready'
-            : 'WASD to move • Arrow Keys to shoot • E for editor • ESC for hero selection'
+            ? 'Click on the grid to place objects • E to toggle editor'
+            : 'P1: WASD + Arrows • P2: IJKL + Numpad • E for editor • ESC for hero selection'
           }
         </p>
         <div className="mt-2 flex items-center justify-center space-x-4 text-sm text-gray-500">
           <span>Score: {gameState.score}</span>
           <span>•</span>
-          <span>Health: {gameState.player.health}/{gameState.player.maxHealth}</span>
+          <span>P1 Health: {gameState.player1.health}/{gameState.player1.maxHealth}</span>
+          <span>•</span>
+          <span>P2 Health: {gameState.player2.health}/{gameState.player2.maxHealth}</span>
           <span>•</span>
           <span>Enemies: {gameState.enemies.length}</span>
           <span>•</span>
-          <span>Active: {gameState.activePartyMembers.length + 1}</span>
+          <span>Active: {gameState.activePartyMembers.length + 2}</span>
           <span>•</span>
           <span>Captives: {gameState.captives.length}</span>
           <span>•</span>
@@ -402,28 +400,49 @@ const GridGame: React.FC = () => {
         )}
         
         {/* Hero Stats */}
-        {gameState.selectedHeroType && (
+        {gameState.player1HeroType && (
           <div className="mt-3 flex items-center justify-center space-x-6 text-xs text-gray-600">
-            <span>Weapon: {WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].name}</span>
+            <span>P1 Weapon: {WEAPON_CONFIGS[gameState.player1HeroType.weaponType].name}</span>
             <span>•</span>
-            <span>Move Speed: {gameState.selectedHeroType.moveSpeed}ms</span>
+            <span>P2 Weapon: {gameState.player2HeroType ? WEAPON_CONFIGS[gameState.player2HeroType.weaponType].name : 'Same'}</span>
             <span>•</span>
-            <span>Shoot Rate: {WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].cooldown}ms</span>
+            <span>Mode: {gameState.gameMode}</span>
           </div>
         )}
         
-        {/* Health Bar */}
+        {/* Player 1 Health Bar */}
         <div className="mt-3 flex items-center justify-center space-x-2">
-          <span className="text-sm text-gray-600">Health:</span>
+          <span className="text-sm text-blue-600 font-medium">Player 1:</span>
           <div className="flex space-x-1">
-            {Array.from({ length: gameState.player.maxHealth }, (_, i) => (
+            {Array.from({ length: gameState.player1.maxHealth }, (_, i) => (
               <div
                 key={i}
                 className={`w-6 h-6 rounded border-2 ${
-                  i < gameState.player.health
-                    ? gameState.player.health === gameState.player.maxHealth
+                  i < gameState.player1.health
+                    ? gameState.player1.health === gameState.player1.maxHealth
                       ? 'bg-green-500 border-green-600'
-                      : gameState.player.health > 1
+                      : gameState.player1.health > 1
+                      ? 'bg-yellow-500 border-yellow-600'
+                      : 'bg-red-500 border-red-600'
+                    : 'bg-gray-200 border-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+        
+        {/* Player 2 Health Bar */}
+        <div className="mt-2 flex items-center justify-center space-x-2">
+          <span className="text-sm text-green-600 font-medium">Player 2:</span>
+          <div className="flex space-x-1">
+            {Array.from({ length: gameState.player2.maxHealth }, (_, i) => (
+              <div
+                key={i}
+                className={`w-6 h-6 rounded border-2 ${
+                  i < gameState.player2.health
+                    ? gameState.player2.health === gameState.player2.maxHealth
+                      ? 'bg-green-500 border-green-600'
+                      : gameState.player2.health > 1
                       ? 'bg-yellow-500 border-yellow-600'
                       : 'bg-red-500 border-red-600'
                     : 'bg-gray-200 border-gray-300'
@@ -530,7 +549,9 @@ const GridGame: React.FC = () => {
           <div className="inline-flex items-center space-x-4 text-sm text-gray-500">
             <span>Grid: {GRID_COLS}×{GRID_ROWS}</span>
             <span>•</span>
-            <span>Player: ({gameState.player.position.x}, {gameState.player.position.y})</span>
+            <span>P1: ({gameState.player1.position.x}, {gameState.player1.position.y})</span>
+            <span>•</span>
+            <span>P2: ({gameState.player2.position.x}, {gameState.player2.position.y})</span>
             <span>•</span>
             <span>Projectiles: {gameState.projectiles.length}</span>
             <span>•</span>
@@ -552,10 +573,14 @@ const GridGame: React.FC = () => {
             <h3 className="font-medium text-gray-700">Movement</h3>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-mono">WASD</kbd>
-                <span className="text-gray-600">Move in 4 directions</span>
+                <kbd className="px-2 py-1 bg-blue-100 border border-blue-300 rounded text-xs font-mono">WASD</kbd>
+                <span className="text-gray-600">Player 1 movement</span>
               </div>
-              <div className="text-xs text-gray-500">{gameState.selectedHeroType?.moveSpeed || 500}ms per cell movement</div>
+              <div className="flex items-center space-x-2">
+                <kbd className="px-2 py-1 bg-green-100 border border-green-300 rounded text-xs font-mono">IJKL</kbd>
+                <span className="text-gray-600">Player 2 movement</span>
+              </div>
+              <div className="text-xs text-gray-500">Cooperative movement system</div>
             </div>
           </div>
           
@@ -563,53 +588,43 @@ const GridGame: React.FC = () => {
             <h3 className="font-medium text-gray-700">Combat</h3>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-mono">↑↓←→</kbd>
-                <span className="text-gray-600">Fire {gameState.selectedHeroType ? WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].name.toLowerCase() : 'weapon'}</span>
+                <kbd className="px-2 py-1 bg-blue-100 border border-blue-300 rounded text-xs font-mono">↑↓←→</kbd>
+                <span className="text-gray-600">Player 1 shooting</span>
               </div>
-              <div className="text-xs text-gray-500">200ms projectile speed</div>
-              <div className="text-xs text-gray-500">
-                {gameState.selectedHeroType ? WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].cooldown : 300}ms cooldown between shots
+              <div className="flex items-center space-x-2">
+                <kbd className="px-2 py-1 bg-green-100 border border-green-300 rounded text-xs font-mono">Numpad</kbd>
+                <span className="text-gray-600">Player 2 shooting</span>
               </div>
-              {gameState.selectedHeroType && (
-                <div className="text-xs text-gray-500">
-                  {WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].description}
-                </div>
-              )}
+              <div className="text-xs text-gray-500">Coordinate attacks for maximum effectiveness</div>
             </div>
           </div>
           
           <div className="space-y-3">
             <h3 className="font-medium text-gray-700">Game Rules</h3>
             <div className="space-y-1 text-xs text-gray-600">
-              <p>• Reach the top edge to win</p>
-              <p>• Avoid enemy projectiles and collisions</p>
-              <p>• Shoot enemies to eliminate them</p>
-              <p>• Player has {gameState.selectedHeroType?.maxHealth || 3} health points</p>
-              <p>• Enemies have 1 health point each</p>
-              <p>• Enemies auto-shoot in line of sight</p>
-              <p>• Press R to restart after game over</p>
-              <p>• Defeat all enemies for level complete</p>
-              <p>• Press ESC to return to hero selection</p>
-              <p>• Collect diamond heroes to build your party</p>
-              <p>• Press E to enter level editor mode</p>
-              <p>• Collect star power-ups for temporary abilities</p>
-              <p>• Characters become captives when health reaches 0</p>
-              <p>• Walk near captives to rescue them (1 health)</p>
-              <p>• Game over if all characters become captives</p>
-              <p>• All active characters must reach exit to win</p>
+              <p>• <strong>Cooperative Victory:</strong> All players must reach exit zones</p>
+              <p>• <strong>Shared Resources:</strong> Both players share the same character pool</p>
+              <p>• <strong>Rescue Mechanics:</strong> Either player can rescue captives</p>
+              <p>• <strong>Team Health:</strong> Game over if both players are captured</p>
+              <p>• <strong>Coordination Required:</strong> Work together to defeat enemies</p>
+              <p>• <strong>Shared Score:</strong> Points are earned collectively</p>
+              <p>• <strong>Party Management:</strong> Rescued characters join the team</p>
+              <p>• <strong>Strategic Positioning:</strong> Players can't occupy same space</p>
+              <p>• <strong>Collective Exit:</strong> All active characters must reach exit</p>
+              <p>• Press R to restart • ESC for hero selection • E for editor</p>
             </div>
           </div>
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <h3 className="font-medium text-gray-700 mb-2">Performance Features</h3>
+          <h3 className="font-medium text-gray-700 mb-2">Cooperative Features</h3>
           <div className="text-xs text-gray-600 space-y-1">
-            <p>• Pre-rendered grid for optimal performance</p>
-            <p>• Efficient collision detection system</p>
-            <p>• Smooth 60fps gameplay with requestAnimationFrame</p>
-            <p>• Modular architecture for easy expansion</p>
-            <p>• Captive rescue mechanics inspired by Gain Ground</p>
-            <p>• Strategic party management and rescue gameplay</p>
+            <p>• <strong>Dual Control System:</strong> Independent movement and shooting for each player</p>
+            <p>• <strong>Shared Victory Conditions:</strong> Success requires teamwork and coordination</p>
+            <p>• <strong>Cooperative Rescue System:</strong> Either player can save captured teammates</p>
+            <p>• <strong>Strategic Depth:</strong> Players must coordinate positioning and attacks</p>
+            <p>• <strong>Collective Resource Management:</strong> Shared health, score, and party members</p>
+            <p>• <strong>Real-time Cooperation:</strong> No turn-based delays, pure cooperative action</p>
           </div>
         </div>
       </div>
@@ -659,7 +674,7 @@ const GridGame: React.FC = () => {
 };
 
 // Import POWER_UP_TYPES for the component
-import { POWER_UP_TYPES, WEAPON_CONFIGS } from '../config/GameConfig';
+import { POWER_UP_TYPES, WEAPON_CONFIGS, HERO_TYPES } from '../config/GameConfig';
 import { WeaponType } from '../types/GameTypes';
 
 export default GridGame;
