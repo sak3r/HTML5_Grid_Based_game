@@ -12,6 +12,8 @@ export const GAME_CONFIG: GameConfig = {
   DESTROY_FADE_DURATION: 500, // ms for enemy destroy fade
   PLAYER_MAX_HEALTH: 3, // default, overridden by hero type
   ENEMY_MAX_HEALTH: 1,
+  POWER_UP_SPEED_MULTIPLIER: 0.5, // 50% faster
+  POWER_UP_SHOOT_MULTIPLIER: 0.5, // 50% faster
 };
 
 export const GRID_COLS = Math.floor(GAME_CONFIG.CANVAS_WIDTH / GAME_CONFIG.GRID_SIZE);
@@ -106,3 +108,73 @@ export const ENEMY_CONFIGS = [
     maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
   },
 ];
+
+export const COLLECTIBLE_HERO_CONFIGS = [
+  {
+    id: 'collectible-warrior',
+    position: { x: 3, y: 3 },
+    heroType: HERO_TYPES[0], // Warrior
+  },
+  {
+    id: 'collectible-scout',
+    position: { x: 22, y: 6 },
+    heroType: HERO_TYPES[1], // Scout
+  },
+  {
+    id: 'collectible-tank',
+    position: { x: 15, y: 10 },
+    heroType: HERO_TYPES[2], // Tank
+  },
+  {
+    id: 'collectible-warrior2',
+    position: { x: 7, y: 16 },
+    heroType: HERO_TYPES[0], // Another Warrior
+  },
+];
+
+export const POWER_UP_CONFIGS = [
+  {
+    id: 'speedboost-1',
+    position: { x: 10, y: 4 },
+    type: 'speedBoost' as const,
+  },
+  {
+    id: 'rapidfire-1',
+    position: { x: 16, y: 8 },
+    type: 'rapidFire' as const,
+  },
+  {
+    id: 'shield-1',
+    position: { x: 4, y: 14 },
+    type: 'shield' as const,
+  },
+  {
+    id: 'speedboost-2',
+    position: { x: 20, y: 12 },
+    type: 'speedBoost' as const,
+  },
+];
+
+export const POWER_UP_TYPES = {
+  speedBoost: {
+    type: 'speedBoost' as const,
+    name: 'Speed Boost',
+    duration: 10000, // 10 seconds
+    color: '#fbbf24',
+    icon: '⚡',
+  },
+  rapidFire: {
+    type: 'rapidFire' as const,
+    name: 'Rapid Fire',
+    duration: 8000, // 8 seconds
+    color: '#f87171',
+    icon: '🔥',
+  },
+  shield: {
+    type: 'shield' as const,
+    name: 'Shield',
+    duration: 5000, // 5 seconds
+    color: '#60a5fa',
+    icon: '🛡️',
+  },
+};

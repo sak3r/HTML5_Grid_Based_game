@@ -46,9 +46,14 @@ export interface GameState {
   player: Player;
   enemies: Enemy[];
   projectiles: Projectile[];
+  collectibleHeroes: CollectibleHero[];
+  powerUps: PowerUp[];
+  partyHeroes: HeroType[];
+  activePowerUps: ActivePowerUp[];
   gameStatus: 'playing' | 'gameOver' | 'victory' | 'levelComplete' | 'paused';
   score: number;
   level: number;
+  selectedHeroType: HeroType | null;
 }
 
 export interface GameConfig {
@@ -70,4 +75,32 @@ export interface HeroType {
   moveSpeed: number;
   shootCooldown: number;
   description: string;
+}
+
+export interface CollectibleHero {
+  id: string;
+  position: Position;
+  heroType: HeroType;
+  collected: boolean;
+}
+
+export interface PowerUp {
+  id: string;
+  position: Position;
+  type: 'speedBoost' | 'rapidFire' | 'shield';
+  collected: boolean;
+}
+
+export interface ActivePowerUp {
+  type: 'speedBoost' | 'rapidFire' | 'shield';
+  startTime: number;
+  duration: number;
+}
+
+export interface PowerUpConfig {
+  type: 'speedBoost' | 'rapidFire' | 'shield';
+  name: string;
+  duration: number;
+  color: string;
+  icon: string;
 }

@@ -1,5 +1,5 @@
 import { GameState, Position, Projectile, Enemy } from '../types/GameTypes';
-import { GAME_CONFIG, COLORS, ENEMY_CONFIGS } from '../config/GameConfig';
+import { GAME_CONFIG, COLORS, ENEMY_CONFIGS, COLLECTIBLE_HERO_CONFIGS, POWER_UP_CONFIGS, POWER_UP_TYPES } from '../config/GameConfig';
 import { 
   calculateDistance, 
   isValidPosition, 
@@ -36,6 +36,16 @@ export class GameLogic {
         isDestroyed: false,
         destroyTime: 0,
       })),
+      collectibleHeroes: COLLECTIBLE_HERO_CONFIGS.map(config => ({
+        ...config,
+        collected: false,
+      })),
+      powerUps: POWER_UP_CONFIGS.map(config => ({
+        ...config,
+        collected: false,
+      })),
+      partyHeroes: [],
+      activePowerUps: [],
       projectiles: [],
       gameStatus: 'playing',
       score: 0,
@@ -61,11 +71,15 @@ export class GameLogic {
     // Update projectiles
     newState = this.updateProjectiles(newState, currentTime);
 
+    // Update power-ups
+    newState = this.updatePowerUps(newState, currentTime);
+
     // Check collisions
     newState = this.checkCollisions(newState);
 
-    // Check win condition (player reached top)
-    if (newState.player.position.y === -1) {
+    // Check win condition (all party members reached top)
+    const allPartyMembersAtExit = this.checkAllPartyMembersAtExit(newState);
+    if (allPartyMembersAtExit) {
       newState.gameStatus = 'victory';
     }
 
@@ -83,7 +97,11 @@ export class GameLogic {
   private updatePlayer(gameState: GameState, pressedKeys: Set<string>, currentTime: number): GameState {
     const newState = { ...gameState };
     const heroType = gameState.selectedHeroType;
-    const moveSpeed = heroType?.moveSpeed || GAME_CONFIG.PLAYER_MOVE_SPEED;
+    
+    // Apply speed boost if active
+    const hasSpeedBoost = gameState.activePowerUps.some(powerUp => powerUp.type === 'speedBoost');
+    const baseMoveSpeed = heroType?.moveSpeed || GAME_CONFIG.PLAYER_MOVE_SPEED;
+    const moveSpeed = hasSpeedBoost ? baseMoveSpeed * GAME_CONFIG.POWER_UP_SPEED_MULTIPLIER : baseMoveSpeed;
     
     // Handle movement
     let deltaX = 0;
@@ -192,6 +210,33 @@ export class GameLogic {
     return newState;
   }
 
+  private updatePowerUps(gameState: GameState, currentTime: number): GameState {
+    const newState = { ...gameState };
+    
+    // Remove expired power-ups
+    newState.activePowerUps = gameState.activePowerUps.filter(powerUp => 
+      currentTime - powerUp.startTime < powerUp.duration
+    );
+    
+    return newState;
+  }
+
+  private checkAllPartyMembersAtExit(gameState: GameState): boolean {
+    // Player must be at exit
+    if (gameState.player.position.y !== -1) {
+      return false;
+    }
+    
+    // If no party members, just player needs to reach exit
+    if (gameState.partyHeroes.length === 0) {
+      return true;
+    }
+    
+    // For now, we'll consider all party members "follow" the player
+    // In a more complex implementation, each party member would have their own position
+    return true;
+  }
+
   private updateHitStates(gameState: GameState, currentTime: number): GameState {
     const newState = { ...gameState };
     
@@ -230,9 +275,42 @@ export class GameLogic {
     const newState = { ...gameState };
     const currentTime = Date.now();
     
+    // Check collectible hero collisions
+    newState.collectibleHeroes = gameState.collectibleHeroes.map(collectible => {
+      if (!collectible.collected && checkCollision(collectible.position, gameState.player.position)) {
+        newState.partyHeroes = [...newState.partyHeroes, collectible.heroType];
+        newState.score += 200;
+        return { ...collectible, collected: true };
+      }
+      return collectible;
+    });
+    
+    // Check power-up collisions
+    newState.powerUps = gameState.powerUps.map(powerUp => {
+      if (!powerUp.collected && checkCollision(powerUp.position, gameState.player.position)) {
+        const powerUpConfig = POWER_UP_TYPES[powerUp.type];
+        
+        // Remove existing power-up of same type
+        newState.activePowerUps = newState.activePowerUps.filter(active => active.type !== powerUp.type);
+        
+        // Add new power-up
+        newState.activePowerUps.push({
+          type: powerUp.type,
+          startTime: currentTime,
+          duration: powerUpConfig.duration,
+        });
+        
+        newState.score += 150;
+        return { ...powerUp, collected: true };
+      }
+      return powerUp;
+    });
+    
     // Check projectile-player collisions
+    const hasShield = gameState.activePowerUps.some(powerUp => powerUp.type === 'shield');
     const playerHitProjectiles = gameState.projectiles.filter(projectile => 
-      projectile.ownerId !== 'player' && 
+      projectile.ownerId !== 'player' &&
+      !hasShield &&
       checkCollision(projectile.position, gameState.player.position)
     );
     
@@ -335,6 +413,8 @@ export class GameLogic {
   }
 
   public getPlayerShootCooldown(gameState: GameState): number {
-    return gameState.selectedHeroType?.shootCooldown || GAME_CONFIG.SHOOT_COOLDOWN;
+    const hasRapidFire = gameState.activePowerUps.some(powerUp => powerUp.type === 'rapidFire');
+    const baseCooldown = gameState.selectedHeroType?.shootCooldown || GAME_CONFIG.SHOOT_COOLDOWN;
+    return hasRapidFire ? baseCooldown * GAME_CONFIG.POWER_UP_SHOOT_MULTIPLIER : baseCooldown;
   }
 }

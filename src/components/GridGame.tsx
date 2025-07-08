@@ -198,6 +198,8 @@ const GridGame: React.FC = () => {
           <span>•</span>
           <span>Enemies: {gameState.enemies.length}</span>
           <span>•</span>
+          <span>Party: {gameState.partyHeroes.length}</span>
+          <span>•</span>
           <span>Status: {gameState.gameStatus}</span>
         </div>
         
@@ -232,6 +234,50 @@ const GridGame: React.FC = () => {
             ))}
           </div>
         </div>
+        
+        {/* Party Heroes */}
+        {gameState.partyHeroes.length > 0 && (
+          <div className="mt-3 flex items-center justify-center space-x-2">
+            <span className="text-sm text-gray-600">Party:</span>
+            <div className="flex space-x-1">
+              {gameState.partyHeroes.map((hero, index) => (
+                <div
+                  key={index}
+                  className="w-8 h-8 rounded border-2 flex items-center justify-center text-xs font-bold text-white"
+                  style={{ 
+                    backgroundColor: hero.color, 
+                    borderColor: hero.borderColor 
+                  }}
+                >
+                  {hero.name.charAt(0)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Active Power-ups */}
+        {gameState.activePowerUps.length > 0 && (
+          <div className="mt-3 flex items-center justify-center space-x-4">
+            {gameState.activePowerUps.map((powerUp, index) => {
+              const config = POWER_UP_TYPES[powerUp.type];
+              const timeLeft = Math.max(0, powerUp.duration - (Date.now() - powerUp.startTime));
+              const secondsLeft = Math.ceil(timeLeft / 1000);
+              
+              return (
+                <div
+                  key={index}
+                  className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium text-white"
+                  style={{ backgroundColor: config.color }}
+                >
+                  <span>{config.icon}</span>
+                  <span>{config.name}</span>
+                  <span>({secondsLeft}s)</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="relative">
@@ -250,6 +296,8 @@ const GridGame: React.FC = () => {
             <span>Player: ({gameState.player.position.x}, {gameState.player.position.y})</span>
             <span>•</span>
             <span>Projectiles: {gameState.projectiles.length}</span>
+            <span>•</span>
+            <span>Collectibles: {gameState.collectibleHeroes.filter(h => !h.collected).length + gameState.powerUps.filter(p => !p.collected).length}</span>
           </div>
         </div>
       </div>
@@ -292,6 +340,9 @@ const GridGame: React.FC = () => {
               <p>• Press R to restart after game over</p>
               <p>• Defeat all enemies for level complete</p>
               <p>• Press ESC to return to hero selection</p>
+              <p>• Collect diamond heroes to build your party</p>
+              <p>• Collect star power-ups for temporary abilities</p>
+              <p>• All party members must reach the exit to win</p>
             </div>
           </div>
         </div>
@@ -303,11 +354,16 @@ const GridGame: React.FC = () => {
             <p>• Efficient collision detection system</p>
             <p>• Smooth 60fps gameplay with requestAnimationFrame</p>
             <p>• Modular architecture for easy expansion</p>
+            <p>• Dynamic collectible and power-up systems</p>
+            <p>• Strategic party-building mechanics</p>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+// Import POWER_UP_TYPES for the component
+import { POWER_UP_TYPES } from '../config/GameConfig';
 
 export default GridGame;

@@ -1,5 +1,6 @@
-import { GameState, Position, Enemy, Projectile } from '../types/GameTypes';
+import { GameState, Position, Enemy, Projectile, CollectibleHero, PowerUp } from '../types/GameTypes';
 import { GAME_CONFIG, COLORS } from '../config/GameConfig';
+import { POWER_UP_TYPES } from '../config/GameConfig';
 
 export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -70,6 +71,20 @@ export class GameRenderer {
       this.drawProjectile(projectile);
     });
 
+    // Draw collectible heroes
+    gameState.collectibleHeroes.forEach(collectible => {
+      if (!collectible.collected) {
+        this.drawCollectibleHero(collectible);
+      }
+    });
+
+    // Draw power-ups
+    gameState.powerUps.forEach(powerUp => {
+      if (!powerUp.collected) {
+        this.drawPowerUp(powerUp);
+      }
+    });
+
     // Draw enemies
     gameState.enemies.forEach(enemy => {
       if (!enemy.isDestroyed) {
@@ -80,7 +95,8 @@ export class GameRenderer {
     });
 
     // Draw player
-    this.drawPlayerWithHeroType(gameState.player, gameState.selectedHeroType);
+    const hasShield = gameState.activePowerUps.some(powerUp => powerUp.type === 'shield');
+    this.drawPlayerWithHeroType(gameState.player, gameState.selectedHeroType, hasShield);
 
     // Draw game over overlay if needed
     if (gameState.gameStatus === 'gameOver') {
@@ -134,7 +150,76 @@ export class GameRenderer {
     this.ctx.fillRect(pixelX + 4, pixelY + 4, GAME_CONFIG.GRID_SIZE - 12, 8);
   }
 
-  private drawPlayerWithHeroType(player: Player, heroType: HeroType | null): void {
+  private drawCollectibleHero(collectible: CollectibleHero): void {
+    const position = collectible.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+    const centerX = pixelX + GAME_CONFIG.GRID_SIZE / 2;
+    const centerY = pixelY + GAME_CONFIG.GRID_SIZE / 2;
+    const size = 12;
+
+    // Glow effect
+    this.ctx.shadowColor = collectible.heroType.color;
+    this.ctx.shadowBlur = 8;
+
+    // Diamond shape
+    this.ctx.fillStyle = collectible.heroType.color;
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX, centerY - size);
+    this.ctx.lineTo(centerX + size, centerY);
+    this.ctx.lineTo(centerX, centerY + size);
+    this.ctx.lineTo(centerX - size, centerY);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // Border
+    this.ctx.strokeStyle = collectible.heroType.borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    // Reset shadow
+    this.ctx.shadowBlur = 0;
+  }
+
+  private drawPowerUp(powerUp: PowerUp): void {
+    const position = powerUp.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+    const centerX = pixelX + GAME_CONFIG.GRID_SIZE / 2;
+    const centerY = pixelY + GAME_CONFIG.GRID_SIZE / 2;
+    const size = 10;
+    const powerUpConfig = POWER_UP_TYPES[powerUp.type];
+
+    // Glow effect
+    this.ctx.shadowColor = powerUpConfig.color;
+    this.ctx.shadowBlur = 6;
+
+    // Star shape
+    this.ctx.fillStyle = powerUpConfig.color;
+    this.ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const angle = (i * 4 * Math.PI) / 5;
+      const x = centerX + Math.cos(angle) * size;
+      const y = centerY + Math.sin(angle) * size;
+      if (i === 0) {
+        this.ctx.moveTo(x, y);
+      } else {
+        this.ctx.lineTo(x, y);
+      }
+    }
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // Border
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+
+    // Reset shadow
+    this.ctx.shadowBlur = 0;
+  }
+
+  private drawPlayerWithHeroType(player: Player, heroType: HeroType | null, hasShield: boolean = false): void {
     const position = player.position;
     const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
     const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
@@ -144,6 +229,15 @@ export class GameRenderer {
     const baseBorderColor = heroType?.borderColor || COLORS.PLAYER_BORDER;
     const color = player.isHit ? COLORS.HIT_FLASH : baseColor;
     const borderColor = player.isHit ? COLORS.HIT_FLASH : baseBorderColor;
+
+    // Shield effect
+    if (hasShield) {
+      this.ctx.strokeStyle = '#60a5fa';
+      this.ctx.lineWidth = 3;
+      this.ctx.setLineDash([5, 5]);
+      this.ctx.strokeRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
+      this.ctx.setLineDash([]);
+    }
 
     // Shadow
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
