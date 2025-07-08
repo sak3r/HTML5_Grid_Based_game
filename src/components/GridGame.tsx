@@ -397,5 +397,3 @@ const GridGame: React.FC = () => {
 };
 
 export default GridGame;
-
-export default GridGame;
