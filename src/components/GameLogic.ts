@@ -1,5 +1,23 @@
-// ... [previous code remains the same until the projectiles update section]
+import { GameState, Position, Projectile, WeaponType } from '../types/GameTypes';
+import { GRID_COLS, GRID_ROWS, WEAPON_CONFIGS } from '../config/GameConfig';
+import { isValidPosition, calculateDistance } from '../utils/GameUtils';
 
+export class GameLogic {
+  private updateBoomerangPosition(projectile: Projectile, currentTime: number): Position {
+    // Implementation for boomerang trajectory
+    const trajectory = this.calculateBoomerangTrajectory(projectile);
+    
+    return {
+      trajectory,
+      currentTrajectoryIndex: 0,
+    };
+  }
+
+  private calculateBoomerangTrajectory(projectile: Projectile): any {
+    // Placeholder implementation for boomerang trajectory calculation
+    const trajectory = [];
+    // Add trajectory calculation logic here
+    
     return {
       trajectory,
       currentTrajectoryIndex: 0,
