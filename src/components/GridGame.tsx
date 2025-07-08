@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { GameState, Position, HeroType, EditorTool, EnemyType } from '../types/GameTypes';
-import { GAME_CONFIG, GRID_COLS, GRID_ROWS } from '../config/GameConfig';
+import { GAME_CONFIG, GRID_COLS, GRID_ROWS, POWER_UP_TYPES, WEAPON_CONFIGS, HERO_TYPES } from '../config/GameConfig';
 import { GameRenderer } from './GameRenderer';
-import { GameLogic } from './GameLogic';
+import { GameEngine } from '../core/GameEngine';
 import HeroSelection from './HeroSelection';
 import EditorSidebar from './EditorSidebar';
 import EnemyConfigPanel from './EnemyConfigPanel';
@@ -17,9 +17,7 @@ import { CampaignProgress, LevelCompletionResult } from '../types/GameTypes';
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
-  const pressedKeys = useRef<Set<string>>(new Set());
-  const lastFrameTime = useRef<number>(0);
-  const gameLogic = useRef<GameLogic>(new GameLogic());
+  const gameEngine = useRef<GameEngine>(new GameEngine({ enableDebugMode: true }));
   const renderer = useRef<GameRenderer | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -39,40 +37,57 @@ const GridGame: React.FC = () => {
 
   // Handle restart
   const handleRestart = useCallback(() => {
-    if (gameState?.player1HeroType && gameMode !== 'campaign') {
-      const newState = gameLogic.current.createInitialGameState(gameState.player1HeroType, gameState.gameMode || 'cooperative');
-      // Preserve time limit from current game
-      newState.timeLimit = gameState.timeLimit;
-      newState.timeRemaining = gameState.timeLimit;
-      setGameState(gameLogic.current.resetTimer(newState));
-    } else if (gameMode === 'campaign') {
+    if (gameMode === 'campaign') {
       // Restart current campaign level
       handleCampaignLevelStart(currentCampaignLevel);
+    } else if (gameState?.player1HeroType) {
+      try {
+        gameEngine.current.createNewGame(
+          gameState.player1HeroType, 
+          gameState.player2HeroType || gameState.player1HeroType, 
+          gameState.gameMode || 'cooperative'
+        );
+        setGameState(gameEngine.current.getGameState());
+        gameEngine.current.startGameLoop();
+      } catch (error) {
+        console.error('Failed to restart game:', error);
+      }
     } else {
       handleBackToMenu();
     }
-  }, [gameState?.player1HeroType, gameState?.gameMode, gameMode, currentCampaignLevel]);
+  }, [gameState?.player1HeroType, gameState?.player2HeroType, gameState?.gameMode, gameMode, currentCampaignLevel, handleCampaignLevelStart, handleBackToMenu]);
 
   const handleHeroSelect = useCallback((heroType: HeroType, mode: 'cooperative' | 'campaign' = 'cooperative') => {
-    const newState = gameLogic.current.createInitialGameState(heroType, mode);
+    try {
+      // For now, both players use the same hero type
+      gameEngine.current.createNewGame(heroType, heroType, mode);
     
-    if (mode === 'campaign') {
-      // Load campaign level data
-      const levelData = CAMPAIGN_LEVELS[currentCampaignLevel];
-      newState.campaignMode = true;
-      newState.currentCampaignLevel = currentCampaignLevel;
-      newState.timeLimit = levelData.difficultyScaling.timeLimit;
-      newState.timeRemaining = levelData.difficultyScaling.timeLimit;
+      if (mode === 'campaign') {
+        // Load campaign level data
+        const levelData = CAMPAIGN_LEVELS[currentCampaignLevel];
+        const newState = gameEngine.current.getGameState();
+        if (newState) {
+          newState.campaignMode = true;
+          newState.currentCampaignLevel = currentCampaignLevel;
+          newState.timeLimit = levelData.difficultyScaling.timeLimit;
+          newState.timeRemaining = levelData.difficultyScaling.timeLimit;
       
-      // Apply level data
-      newState.enemies = levelData.levelData.enemies;
-      newState.collectibleHeroes = levelData.levelData.collectibleHeroes;
-      newState.powerUps = levelData.levelData.powerUps;
-      newState.editorObjects = levelData.levelData.editorObjects;
-    }
+          // Apply level data
+          newState.enemies = levelData.levelData.enemies;
+          newState.collectibleHeroes = levelData.levelData.collectibleHeroes;
+          newState.powerUps = levelData.levelData.powerUps;
+          newState.editorObjects = levelData.levelData.editorObjects;
+        }
+      }
     
-    setGameState(gameLogic.current.resetTimer(newState));
-    setShowHeroSelection(false);
+      setGameState(gameEngine.current.getGameState());
+      setShowHeroSelection(false);
+      
+      // Start the game loop
+      gameEngine.current.startGameLoop();
+    } catch (error) {
+      console.error('Failed to create new game:', error);
+    }
   }, [currentCampaignLevel]);
 
   const handleBackToMenu = useCallback(() => {
@@ -136,39 +151,28 @@ const GridGame: React.FC = () => {
   }, [gameMode, gameState, currentCampaignLevel, campaignProgress]);
 
   const handleEditorToggle = useCallback(() => {
-    if (gameState) {
-      setGameState(gameLogic.current.toggleEditorMode(gameState));
-    }
+    // Toggle editor mode - this would need to be implemented in the new architecture
+    console.log('Editor toggle - to be implemented');
   }, [gameState]);
 
   const handleToolSelect = useCallback((tool: EditorTool) => {
-    if (gameState) {
-      setGameState(gameLogic.current.setSelectedTool(gameState, tool));
-    }
+    // Tool selection - to be implemented
+    console.log('Tool select - to be implemented:', tool);
   }, [gameState]);
 
   const handleEnemyTypeSelect = useCallback((enemyType: EnemyType) => {
-    if (gameState) {
-      setGameState(gameLogic.current.setSelectedEnemyType(gameState, enemyType));
-    }
+    // Enemy type selection - to be implemented
+    console.log('Enemy type select - to be implemented:', enemyType);
   }, [gameState]);
 
   const handleEnemyConfigConfirm = useCallback((config: any) => {
-    if (gameState) {
-      if (gameState.selectedObject) {
-        // Editing existing enemy
-        setGameState(gameLogic.current.updateEnemyFromConfig(gameState, config));
-      } else {
-        // Placing new enemy
-        setGameState(gameLogic.current.placeEnemyFromConfig(gameState, config));
-      }
-    }
+    // Enemy config confirmation - to be implemented
+    console.log('Enemy config confirm - to be implemented:', config);
   }, [gameState]);
 
   const handleEnemyConfigCancel = useCallback(() => {
-    if (gameState) {
-      setGameState(gameLogic.current.closeEnemyConfigPanel(gameState));
-    }
+    // Enemy config cancel - to be implemented
+    console.log('Enemy config cancel - to be implemented');
   }, [gameState]);
 
   const handleTimerConfig = useCallback(() => {
@@ -176,9 +180,8 @@ const GridGame: React.FC = () => {
   }, []);
 
   const handleTimerConfigConfirm = useCallback((timeLimit: number) => {
-    if (gameState) {
-      setGameState(gameLogic.current.setTimeLimit(gameState, timeLimit));
-    }
+    // Timer config - to be implemented
+    console.log('Timer config - to be implemented:', timeLimit);
     setShowTimerConfig(false);
   }, [gameState]);
 
@@ -187,213 +190,48 @@ const GridGame: React.FC = () => {
   }, []);
 
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!gameState) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    const gridX = Math.floor(x / GAME_CONFIG.GRID_SIZE);
-    const gridY = Math.floor(y / GAME_CONFIG.GRID_SIZE);
-    
-    if (gridX >= 0 && gridX < GRID_COLS && gridY >= 0 && gridY < GRID_ROWS) {
-      const isRightClick = event.button === 2;
-      const newState = gameLogic.current.handleEditorClick(gameState, { x: gridX, y: gridY }, isRightClick);
-      setGameState(newState);
-    }
+    // Canvas click handling - to be implemented for editor mode
+    console.log('Canvas click - to be implemented');
   }, [gameState]);
 
   const handleCanvasMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!gameState?.editorMode) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    const gridX = Math.floor(x / GAME_CONFIG.GRID_SIZE);
-    const gridY = Math.floor(y / GAME_CONFIG.GRID_SIZE);
-    
-    if (gridX >= 0 && gridX < GRID_COLS && gridY >= 0 && gridY < GRID_ROWS) {
-      const newState = gameLogic.current.setHoveredObject(gameState, { x: gridX, y: gridY });
-      setGameState(newState);
-    }
+    // Mouse move handling - to be implemented for editor mode
   }, [gameState]);
 
   const handleCanvasMouseLeave = useCallback(() => {
-    if (!gameState?.editorMode) return;
-    
-    const newState = gameLogic.current.setHoveredObject(gameState, null);
-    setGameState(newState);
+    // Mouse leave handling - to be implemented for editor mode
   }, [gameState]);
 
   const handleTestLevel = useCallback(() => {
-    if (gameState) {
-      setGameState(gameLogic.current.testLevel(gameState));
-    }
+    // Test level - to be implemented
+    console.log('Test level - to be implemented');
   }, [gameState]);
 
   const handleSaveLevel = useCallback(() => {
-    if (gameState) {
-      const levelData = {
-        playerStart: gameState.player1.position,
-        editorObjects: gameState.editorObjects,
-      };
-      
-      const levelName = prompt('Enter level name:');
-      if (levelName) {
-        localStorage.setItem(`level_${levelName}`, JSON.stringify(levelData));
-        alert('Level saved successfully!');
-      }
-    }
+    // Save level - to be implemented
+    console.log('Save level - to be implemented');
   }, [gameState]);
 
   const handleLoadLevel = useCallback(() => {
-    const levelName = prompt('Enter level name to load:');
-    if (levelName) {
-      const savedLevel = localStorage.getItem(`level_${levelName}`);
-      if (savedLevel) {
-        try {
-          const levelData = JSON.parse(savedLevel);
-          // Apply loaded level data to current game state
-          if (gameState) {
-            setGameState({
-              ...gameState,
-              editorObjects: levelData.editorObjects || [],
-              selectedObject: null,
-              hoveredObject: null,
-            });
-            alert('Level loaded successfully!');
-          }
-        } catch (error) {
-          alert('Error loading level!');
-        }
-      } else {
-        alert('Level not found!');
-      }
-    }
+    // Load level - to be implemented
+    console.log('Load level - to be implemented');
   }, [gameState]);
-
-  const updateGame = useCallback((deltaTime: number) => {
-    setGameState(prev => {
-      if (!prev || prev.gameStatus !== 'playing' || prev.editorMode) return prev;
-      return gameLogic.current.updateGame(prev, pressedKeys.current, deltaTime);
-    });
-  }, []);
-
-  const render = useCallback(() => {
-    if (renderer.current && gameState) {
-      renderer.current.render(gameState);
-    }
-  }, [gameState]);
-
-  const gameLoop = useCallback((timestamp: number) => {
-    const deltaTime = timestamp - lastFrameTime.current;
-    lastFrameTime.current = timestamp;
-
-    updateGame(deltaTime);
-    render();
-    
-    animationRef.current = requestAnimationFrame(gameLoop);
-  }, [updateGame, render]);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const key = event.code;
-      
-      // Movement keys
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(key)) {
-        event.preventDefault();
-        pressedKeys.current.add(key);
-      }
-      
-      // Shooting keys (Arrow keys)
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-        event.preventDefault();
-        let direction: Position = { x: 0, y: 0 };
-        
-        switch (key) {
-          case 'ArrowUp': direction = { x: 0, y: -1 }; break;
-          case 'ArrowDown': direction = { x: 0, y: 1 }; break;
-          case 'ArrowLeft': direction = { x: -1, y: 0 }; break;
-          case 'ArrowRight': direction = { x: 1, y: 0 }; break;
-        }
-        
-        handleShooting(direction, 1);
-      }
-      
-      // Player 2 shooting keys (Number pad)
-      if (['Numpad8', 'Numpad2', 'Numpad4', 'Numpad6'].includes(key)) {
-        event.preventDefault();
-        let direction: Position = { x: 0, y: 0 };
-        
-        switch (key) {
-          case 'Numpad8': direction = { x: 0, y: -1 }; break;
-          case 'Numpad2': direction = { x: 0, y: 1 }; break;
-          case 'Numpad4': direction = { x: -1, y: 0 }; break;
-          case 'Numpad6': direction = { x: 1, y: 0 }; break;
-        }
-        
-        handleShooting(direction, 2);
-      }
-      
-      // Diagonal shooting (combinations)
-      if (pressedKeys.current.has('ArrowUp') && pressedKeys.current.has('ArrowLeft')) {
-        handleShooting({ x: -1, y: -1 });
-      } else if (pressedKeys.current.has('ArrowUp') && pressedKeys.current.has('ArrowRight')) {
-        handleShooting({ x: 1, y: -1 });
-      } else if (pressedKeys.current.has('ArrowDown') && pressedKeys.current.has('ArrowLeft')) {
-        handleShooting({ x: -1, y: 1 });
-      } else if (pressedKeys.current.has('ArrowDown') && pressedKeys.current.has('ArrowRight')) {
-        handleShooting({ x: 1, y: 1 });
-      }
-      
-      // Restart key
-      if (key === 'KeyR' && gameState && ['gameOver', 'victory', 'levelComplete'].includes(gameState.gameStatus)) {
-        event.preventDefault();
-        handleRestart();
-      }
-      
-      // Editor toggle
-      if (key === 'KeyE') {
-        event.preventDefault();
-        handleEditorToggle();
-      }
-      
-      // Delete selected object in editor
-      if (key === 'Delete' && gameState?.editorMode && gameState.selectedObject) {
-        event.preventDefault();
-        setGameState(gameLogic.current.deleteSelectedObject(gameState));
-      }
-      
-      // Back to hero selection
-      if (key === 'Escape') {
-        event.preventDefault();
-        handleBackToMenu();
+    // Set up game state polling
+    const pollGameState = () => {
+      const currentState = gameEngine.current.getGameState();
+      if (currentState) {
+        setGameState(currentState);
       }
     };
 
-    const handleKeyUp = (event: KeyboardEvent) => {
-      const key = event.code;
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(key)) {
-        event.preventDefault();
-        pressedKeys.current.delete(key);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    const pollInterval = setInterval(pollGameState, 16); // ~60fps polling
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      clearInterval(pollInterval);
     };
-  }, [handleShooting, handleRestart, handleEditorToggle, handleBackToMenu, gameState?.gameStatus]);
+  }, []);
 
   // Check for level completion in campaign mode
   useEffect(() => {
@@ -404,22 +242,22 @@ const GridGame: React.FC = () => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !gameState) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    renderer.current = new GameRenderer(ctx);
-    
-    lastFrameTime.current = performance.now();
-    animationRef.current = requestAnimationFrame(gameLoop);
+    try {
+      gameEngine.current.initialize(ctx);
+      renderer.current = new GameRenderer(ctx);
+    } catch (error) {
+      console.error('Failed to initialize game engine:', error);
+    }
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      gameEngine.current.destroy();
     };
-  }, [gameLoop]);
+  }, []);
 
   // Show main menu
   if (gameMode === 'menu') {
@@ -798,8 +636,18 @@ const GridGame: React.FC = () => {
           onImportLevel={() => {}}
           onDeleteLevel={() => {}}
           gameState={gameState}
-          levelStats={gameLogic.current.validateLevel(gameState)}
-          savedLevels={gameLogic.current.getSavedLevels()}
+          levelStats={{
+            enemyCount: gameState.enemies.length,
+            collectibleCount: gameState.collectibleHeroes.length,
+            powerUpCount: gameState.powerUps.length,
+            wallCount: 0,
+            exitZoneCount: 0,
+            hasPlayerStart: true,
+            isValid: true,
+            validationErrors: [],
+            timeLimit: gameState.timeLimit,
+          }}
+          savedLevels={[]}
           selectedEnemyType={gameState.selectedEnemyType}
           onEnemyTypeSelect={handleEnemyTypeSelect}
           onTimerConfig={handleTimerConfig}
@@ -824,8 +672,4 @@ const GridGame: React.FC = () => {
           onCancel={handleTimerConfigCancel}
         />
       )}
-    </div>
-  );
-};
-
 export default GridGame;

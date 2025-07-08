@@ -3,6 +3,49 @@ export interface Position {
   y: number;
 }
 
+export interface GridCell {
+  position: Position;
+  isOccupied: boolean;
+  occupantType: 'player' | 'enemy' | 'wall' | 'collectible' | 'powerup' | 'exit' | null;
+  occupantId: string | null;
+  isWalkable: boolean;
+  isVisible: boolean;
+}
+
+export interface GridConfig {
+  columns: number;
+  rows: number;
+  cellSize: number;
+  canvasWidth: number;
+  canvasHeight: number;
+}
+
+export interface PlayerState {
+  playerId: string;
+  currentPosition: Position;
+  previousPosition: Position;
+  currentHealth: number;
+  maximumHealth: number;
+  isHitRecently: boolean;
+  hitTimestamp: number;
+  lastMoveTimestamp: number;
+  lastShootTimestamp: number;
+  movementSpeed: number;
+  isAlive: boolean;
+  heroType: HeroType | null;
+}
+
+export interface PlayerStats {
+  totalDamageDealt: number;
+  totalDamageTaken: number;
+  enemiesDefeated: number;
+  captivesRescued: number;
+  powerUpsCollected: number;
+  distanceTraveled: number;
+  shotsfired: number;
+  accuracyPercentage: number;
+}
+
 export enum WeaponType {
   RIFLE = 'rifle',
   SPEAR = 'spear',
