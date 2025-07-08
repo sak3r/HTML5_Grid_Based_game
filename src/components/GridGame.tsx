@@ -1,9 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { GameState, Position, HeroType } from '../types/GameTypes';
+import { GameState, Position, HeroType, EditorTool } from '../types/GameTypes';
 import { GAME_CONFIG, GRID_COLS, GRID_ROWS } from '../config/GameConfig';
 import { GameRenderer } from './GameRenderer';
 import { GameLogic } from './GameLogic';
 import HeroSelection from './HeroSelection';
+import EditorSidebar from './EditorSidebar';
 
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,9 +57,92 @@ const GridGame: React.FC = () => {
     setShowHeroSelection(false);
   }, []);
 
+  const handleEditorToggle = useCallback(() => {
+    if (gameState) {
+      setGameState(gameLogic.current.toggleEditorMode(gameState));
+    }
+  }, [gameState]);
+
+  const handleToolSelect = useCallback((tool: EditorTool) => {
+    if (gameState) {
+      setGameState(gameLogic.current.setSelectedTool(gameState, tool));
+    }
+  }, [gameState]);
+
+  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!gameState?.editorMode) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    const gridX = Math.floor(x / GAME_CONFIG.GRID_SIZE);
+    const gridY = Math.floor(y / GAME_CONFIG.GRID_SIZE);
+    
+    if (gridX >= 0 && gridX < GRID_COLS && gridY >= 0 && gridY < GRID_ROWS) {
+      const newState = gameLogic.current.handleEditorClick(gameState, { x: gridX, y: gridY });
+      setGameState(newState);
+    }
+  }, [gameState]);
+
+  const handleTestLevel = useCallback(() => {
+    if (gameState) {
+      setGameState(gameLogic.current.testLevel(gameState));
+    }
+  }, [gameState]);
+
+  const handleSaveLevel = useCallback(() => {
+    if (gameState) {
+      const levelData = {
+        playerStart: gameState.player.position,
+        enemies: gameState.enemies,
+        walls: [],
+        collectibleHeroes: gameState.collectibleHeroes,
+        powerUps: gameState.powerUps,
+        exitZones: [],
+      };
+      
+      const levelName = prompt('Enter level name:');
+      if (levelName) {
+        localStorage.setItem(`level_${levelName}`, JSON.stringify(levelData));
+        alert('Level saved successfully!');
+      }
+    }
+  }, [gameState]);
+
+  const handleLoadLevel = useCallback(() => {
+    const levelName = prompt('Enter level name to load:');
+    if (levelName) {
+      const savedLevel = localStorage.getItem(`level_${levelName}`);
+      if (savedLevel) {
+        try {
+          const levelData = JSON.parse(savedLevel);
+          // Apply loaded level data to current game state
+          if (gameState) {
+            setGameState({
+              ...gameState,
+              player: { ...gameState.player, position: levelData.playerStart },
+              enemies: levelData.enemies,
+              collectibleHeroes: levelData.collectibleHeroes,
+              powerUps: levelData.powerUps,
+            });
+            alert('Level loaded successfully!');
+          }
+        } catch (error) {
+          alert('Error loading level!');
+        }
+      } else {
+        alert('Level not found!');
+      }
+    }
+  }, [gameState]);
+
   const updateGame = useCallback((deltaTime: number) => {
     setGameState(prev => {
-      if (!prev || prev.gameStatus !== 'playing') return prev;
+      if (!prev || prev.gameStatus !== 'playing' || prev.editorMode) return prev;
       return gameLogic.current.updateGame(prev, pressedKeys.current, deltaTime);
     });
   }, []);
@@ -121,6 +205,12 @@ const GridGame: React.FC = () => {
         handleRestart();
       }
       
+      // Editor toggle
+      if (key === 'KeyE') {
+        event.preventDefault();
+        handleEditorToggle();
+      }
+      
       // Back to hero selection
       if (key === 'Escape') {
         event.preventDefault();
@@ -144,7 +234,7 @@ const GridGame: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleShooting, handleRestart, gameState?.gameStatus]);
+  }, [handleShooting, handleRestart, handleEditorToggle, gameState?.gameStatus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -182,14 +272,25 @@ const GridGame: React.FC = () => {
     );
   }
 
+  const mainContentWidth = gameState.editorMode ? 
+    `calc(100vw - ${GAME_CONFIG.EDITOR_SIDEBAR_WIDTH}px)` : '100vw';
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Main Game Area */}
+      <div 
+        className="flex flex-col items-center justify-center p-4 transition-all duration-300"
+        style={{ width: mainContentWidth }}
+      >
       <div className="mb-6 text-center">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Enhanced Grid Game - {gameState.selectedHeroType?.name || 'Unknown Hero'}
+          {gameState.editorMode ? 'Level Editor' : `Enhanced Grid Game - ${gameState.selectedHeroType?.name || 'Unknown Hero'}`}
         </h1>
         <p className="text-gray-600">
-          WASD to move • Arrow Keys to shoot • Avoid enemies • Reach the top to win • ESC for hero selection
+          {gameState.editorMode 
+            ? 'Click on the grid to place objects • E to toggle editor • Test your level when ready'
+            : 'WASD to move • Arrow Keys to shoot • E for editor • ESC for hero selection'
+          }
         </p>
         <div className="mt-2 flex items-center justify-center space-x-4 text-sm text-gray-500">
           <span>Score: {gameState.score}</span>
@@ -202,6 +303,10 @@ const GridGame: React.FC = () => {
           <span>•</span>
           <span>Status: {gameState.gameStatus}</span>
         </div>
+        
+        {gameState.editorMode && (
+          <div className="mt-2 text-sm text-blue-600 font-medium">Editor Mode Active - Selected Tool: {gameState.selectedTool}</div>
+        )}
         
         {/* Hero Stats */}
         {gameState.selectedHeroType && (
@@ -287,6 +392,7 @@ const GridGame: React.FC = () => {
           height={GAME_CONFIG.CANVAS_HEIGHT}
           className="border-2 border-gray-300 rounded-lg shadow-lg bg-white"
           style={{ imageRendering: 'pixelated' }}
+          onClick={handleCanvasClick}
         />
 
         <div className="absolute -bottom-12 left-0 right-0 text-center">
@@ -302,7 +408,8 @@ const GridGame: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-4xl">
+      {!gameState.editorMode && (
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-4xl">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Game Controls & Features</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <div className="space-y-3">
@@ -341,6 +448,7 @@ const GridGame: React.FC = () => {
               <p>• Defeat all enemies for level complete</p>
               <p>• Press ESC to return to hero selection</p>
               <p>• Collect diamond heroes to build your party</p>
+              <p>• Press E to enter level editor mode</p>
               <p>• Collect star power-ups for temporary abilities</p>
               <p>• All party members must reach the exit to win</p>
             </div>
@@ -359,6 +467,19 @@ const GridGame: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
+      </div>
+      
+      {/* Editor Sidebar */}
+      {gameState.editorMode && (
+        <EditorSidebar
+          selectedTool={gameState.selectedTool}
+          onToolSelect={handleToolSelect}
+          onTestLevel={handleTestLevel}
+          onSaveLevel={handleSaveLevel}
+          onLoadLevel={handleLoadLevel}
+        />
+      )}
     </div>
   );
 };

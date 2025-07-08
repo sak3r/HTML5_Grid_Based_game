@@ -59,6 +59,11 @@ export class GameRenderer {
     // Draw pre-rendered grid
     this.ctx.drawImage(this.gridCanvas, 0, 0);
 
+    // Draw editor grid overlay if in editor mode
+    if (gameState.editorMode) {
+      this.drawEditorGrid();
+    }
+
     // Draw patrol radii
     gameState.enemies.forEach(enemy => {
       if (!enemy.isDestroyed) {
@@ -106,6 +111,30 @@ export class GameRenderer {
     } else if (gameState.gameStatus === 'levelComplete') {
       this.drawLevelCompleteOverlay();
     }
+  }
+
+  private drawEditorGrid(): void {
+    this.ctx.strokeStyle = COLORS.EDITOR_GRID;
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+
+    // Vertical lines
+    for (let x = 0; x <= GAME_CONFIG.CANVAS_WIDTH; x += GAME_CONFIG.GRID_SIZE) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, GAME_CONFIG.CANVAS_HEIGHT);
+      this.ctx.stroke();
+    }
+
+    // Horizontal lines
+    for (let y = 0; y <= GAME_CONFIG.CANVAS_HEIGHT; y += GAME_CONFIG.GRID_SIZE) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(GAME_CONFIG.CANVAS_WIDTH, y);
+      this.ctx.stroke();
+    }
+
+    this.ctx.setLineDash([]);
   }
 
   private drawPatrolRadius(enemy: Enemy): void {

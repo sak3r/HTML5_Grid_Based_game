@@ -54,6 +54,20 @@ export interface GameState {
   score: number;
   level: number;
   selectedHeroType: HeroType | null;
+  editorMode: boolean;
+  selectedTool: EditorTool;
+}
+
+export type EditorTool = 'enemy' | 'wall' | 'collectible' | 'playerStart' | 'exit' | 'powerup';
+
+export interface Wall {
+  id: string;
+  position: Position;
+}
+
+export interface ExitZone {
+  id: string;
+  position: Position;
 }
 
 export interface GameConfig {
@@ -103,4 +117,13 @@ export interface PowerUpConfig {
   duration: number;
   color: string;
   icon: string;
+}
+
+export interface LevelData {
+  playerStart: Position;
+  enemies: Enemy[];
+  walls: Wall[];
+  collectibleHeroes: CollectibleHero[];
+  powerUps: PowerUp[];
+  exitZones: ExitZone[];
 }

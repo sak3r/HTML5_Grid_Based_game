@@ -51,11 +51,25 @@ export class GameLogic {
       score: 0,
       level: 1,
       selectedHeroType: selectedHero,
+      editorMode: false,
+      selectedTool: 'enemy',
+    };
+  }
+
+  public createEditorGameState(heroType?: HeroType): GameState {
+    const baseState = this.createInitialGameState(heroType);
+    return {
+      ...baseState,
+      editorMode: true,
+      gameStatus: 'paused',
+      enemies: [],
+      collectibleHeroes: [],
+      powerUps: [],
     };
   }
 
   public updateGame(gameState: GameState, pressedKeys: Set<string>, deltaTime: number): GameState {
-    if (gameState.gameStatus !== 'playing') {
+    if (gameState.gameStatus !== 'playing' || gameState.editorMode) {
       return gameState;
     }
 
@@ -416,5 +430,95 @@ export class GameLogic {
     const hasRapidFire = gameState.activePowerUps.some(powerUp => powerUp.type === 'rapidFire');
     const baseCooldown = gameState.selectedHeroType?.shootCooldown || GAME_CONFIG.SHOOT_COOLDOWN;
     return hasRapidFire ? baseCooldown * GAME_CONFIG.POWER_UP_SHOOT_MULTIPLIER : baseCooldown;
+  }
+
+  public toggleEditorMode(gameState: GameState): GameState {
+    return {
+      ...gameState,
+      editorMode: !gameState.editorMode,
+      gameStatus: gameState.editorMode ? 'playing' : 'paused',
+    };
+  }
+
+  public setSelectedTool(gameState: GameState, tool: EditorTool): GameState {
+    return {
+      ...gameState,
+      selectedTool: tool,
+    };
+  }
+
+  public handleEditorClick(gameState: GameState, gridPosition: Position): GameState {
+    if (!gameState.editorMode) return gameState;
+
+    const newState = { ...gameState };
+
+    switch (gameState.selectedTool) {
+      case 'enemy':
+        // Add enemy at position
+        const newEnemy = {
+          id: generateId(),
+          position: { ...gridPosition },
+          originalPosition: { ...gridPosition },
+          patrolRadius: 3,
+          color: '#ef4444',
+          borderColor: '#dc2626',
+          health: GAME_CONFIG.ENEMY_MAX_HEALTH,
+          maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
+          isChasing: false,
+          lastMoveTime: 0,
+          lastShootTime: 0,
+          canShoot: true,
+          isHit: false,
+          hitTime: 0,
+          isDestroyed: false,
+          destroyTime: 0,
+        };
+        newState.enemies = [...gameState.enemies, newEnemy];
+        break;
+
+      case 'collectible':
+        // Add collectible hero at position
+        const newCollectible = {
+          id: generateId(),
+          position: { ...gridPosition },
+          heroType: HERO_TYPES[Math.floor(Math.random() * HERO_TYPES.length)],
+          collected: false,
+        };
+        newState.collectibleHeroes = [...gameState.collectibleHeroes, newCollectible];
+        break;
+
+      case 'powerup':
+        // Add power-up at position
+        const powerUpTypes = ['speedBoost', 'rapidFire', 'shield'] as const;
+        const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+        const newPowerUp = {
+          id: generateId(),
+          position: { ...gridPosition },
+          type: randomType,
+          collected: false,
+        };
+        newState.powerUps = [...gameState.powerUps, newPowerUp];
+        break;
+
+      case 'playerStart':
+        // Move player start position
+        newState.player = {
+          ...newState.player,
+          position: { ...gridPosition },
+        };
+        break;
+
+      default:
+        break;
+    }
+    return newState;
+  }
+
+  public testLevel(gameState: GameState): GameState {
+    return {
+      ...gameState,
+      editorMode: false,
+      gameStatus: 'playing',
+    };
   }
 }

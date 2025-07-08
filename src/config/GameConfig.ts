@@ -14,6 +14,7 @@ export const GAME_CONFIG: GameConfig = {
   ENEMY_MAX_HEALTH: 1,
   POWER_UP_SPEED_MULTIPLIER: 0.5, // 50% faster
   POWER_UP_SHOOT_MULTIPLIER: 0.5, // 50% faster
+  EDITOR_SIDEBAR_WIDTH: 300,
 };
 
 export const GRID_COLS = Math.floor(GAME_CONFIG.CANVAS_WIDTH / GAME_CONFIG.GRID_SIZE);
@@ -68,6 +69,12 @@ export const COLORS = {
   HEALTH_FULL: '#10b981',
   HEALTH_DAMAGED: '#f59e0b',
   HEALTH_CRITICAL: '#ef4444',
+  WALL: '#6b7280',
+  WALL_BORDER: '#374151',
+  EXIT_ZONE: '#10b981',
+  EXIT_ZONE_BORDER: '#059669',
+  EDITOR_GRID: '#3b82f6',
+  EDITOR_SELECTED: '#f59e0b',
 };
 
 export const ENEMY_CONFIGS = [
