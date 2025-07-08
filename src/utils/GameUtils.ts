@@ -54,3 +54,67 @@ export const checkCollision = (pos1: Position, pos2: Position): boolean => {
 export const generateId = (): string => {
   return Math.random().toString(36).substr(2, 9);
 };
+
+export const calculateBoomerangPosition = (startPos: Position, currentPos: Position, direction: Position, range: number): Position => {
+  const distance = calculateDistance(startPos, currentPos);
+  
+  if (distance >= range) {
+    // Start returning
+    return {
+      x: currentPos.x - direction.x,
+      y: currentPos.y - direction.y,
+    };
+  }
+  
+  return {
+    x: currentPos.x + direction.x,
+    y: currentPos.y + direction.y,
+  };
+};
+
+export const getExplosionPositions = (center: Position, radius: number): Position[] => {
+  const positions: Position[] = [];
+  
+  for (let x = center.x - radius; x <= center.x + radius; x++) {
+    for (let y = center.y - radius; y <= center.y + radius; y++) {
+      const distance = calculateDistance(center, { x, y });
+      if (distance <= radius && isValidPosition(x, y)) {
+        positions.push({ x, y });
+      }
+    }
+  }
+  
+  return positions;
+};
+
+export const getFlamePositions = (start: Position, end: Position): Position[] => {
+  const positions: Position[] = [];
+  const dx = Math.abs(end.x - start.x);
+  const dy = Math.abs(end.y - start.y);
+  const sx = start.x < end.x ? 1 : -1;
+  const sy = start.y < end.y ? 1 : -1;
+  let err = dx - dy;
+  
+  let x = start.x;
+  let y = start.y;
+  
+  while (true) {
+    if (isValidPosition(x, y)) {
+      positions.push({ x, y });
+    }
+    
+    if (x === end.x && y === end.y) break;
+    
+    const e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y += sy;
+    }
+  }
+  
+  return positions;
+};

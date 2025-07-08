@@ -1,6 +1,6 @@
 import React from 'react';
 import { HeroType } from '../types/GameTypes';
-import { HERO_TYPES } from '../config/GameConfig';
+import { HERO_TYPES, WEAPON_CONFIGS } from '../config/GameConfig';
 import { Shield, Zap, Heart } from 'lucide-react';
 
 interface HeroSelectionProps {
@@ -78,6 +78,25 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ onHeroSelect }) => {
               {hero.description}
             </p>
 
+            {/* Weapon Info */}
+            <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-center justify-center space-x-2 mb-2">
+                <span className="text-2xl">{WEAPON_CONFIGS[hero.weaponType].icon}</span>
+                <span className="text-white font-medium">{WEAPON_CONFIGS[hero.weaponType].name}</span>
+              </div>
+              <p className="text-gray-400 text-xs text-center">
+                {WEAPON_CONFIGS[hero.weaponType].description}
+              </p>
+              <div className="mt-2 flex justify-center space-x-4 text-xs">
+                <span className="text-gray-400">
+                  Damage: <span className="text-white">{WEAPON_CONFIGS[hero.weaponType].damage}</span>
+                </span>
+                <span className="text-gray-400">
+                  Range: <span className="text-white">{WEAPON_CONFIGS[hero.weaponType].range}</span>
+                </span>
+              </div>
+            </div>
+
             {/* Stats */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -108,8 +127,8 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ onHeroSelect }) => {
 
               <div className="flex items-center justify-between">
                 <span className="text-gray-400 text-sm">Shoot Rate:</span>
-                <span className={`font-bold ${getStatColor(hero.shootCooldown, 'cooldown')}`}>
-                  {hero.shootCooldown}ms
+                <span className={`font-bold ${getStatColor(WEAPON_CONFIGS[hero.weaponType].cooldown, 'cooldown')}`}>
+                  {WEAPON_CONFIGS[hero.weaponType].cooldown}ms
                 </span>
               </div>
             </div>

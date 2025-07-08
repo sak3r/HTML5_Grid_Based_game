@@ -1,5 +1,6 @@
 import { GameState, Position, Projectile, Enemy } from '../types/GameTypes';
-import { GAME_CONFIG, COLORS, ENEMY_CONFIGS, COLLECTIBLE_HERO_CONFIGS, POWER_UP_CONFIGS, POWER_UP_TYPES, ENEMY_TYPES } from '../config/GameConfig';
+import { GAME_CONFIG, COLORS, ENEMY_CONFIGS, COLLECTIBLE_HERO_CONFIGS, POWER_UP_CONFIGS, POWER_UP_TYPES, ENEMY_TYPES, WEAPON_CONFIGS } from '../config/GameConfig';
+import { WeaponType } from '../types/GameTypes';
 import { 
   calculateDistance, 
   isValidPosition, 
@@ -7,7 +8,10 @@ import {
   isInLineOfSight, 
   getDirectionToTarget, 
   checkCollision, 
-  generateId 
+  generateId,
+  calculateBoomerangPosition,
+  getExplosionPositions,
+  getFlamePositions
 } from '../utils/GameUtils';
 
 export class GameLogic {
@@ -338,10 +342,27 @@ export class GameLogic {
     newState.projectiles = gameState.projectiles
       .map(projectile => {
         if (currentTime - projectile.lastMoveTime >= projectile.speed) {
-          const newPosition = {
-            x: projectile.position.x + projectile.direction.x,
-            y: projectile.position.y + projectile.direction.y,
-          };
+          let newPosition: Position;
+          
+          // Handle different weapon movement patterns
+          switch (projectile.weaponType) {
+            case WeaponType.BOOMERANG:
+              newPosition = this.updateBoomerangPosition(projectile, currentTime);
+              break;
+            case WeaponType.FLAMETHROWER:
+              // Flamethrower projectiles move in straight line but have shorter range
+              newPosition = {
+                x: projectile.position.x + projectile.direction.x,
+                y: projectile.position.y + projectile.direction.y,
+              };
+              break;
+            default:
+              // Standard movement for rifle, spear, grenade
+              newPosition = {
+                x: projectile.position.x + projectile.direction.x,
+                y: projectile.position.y + projectile.direction.y,
+              };
+          }
           
           return {
             ...projectile,
@@ -351,9 +372,50 @@ export class GameLogic {
         }
         return projectile;
       })
-      .filter(projectile => isValidPosition(projectile.position.x, projectile.position.y));
+      .filter(projectile => {
+        // Different range checks for different weapons
+        if (projectile.weaponType === WeaponType.BOOMERANG) {
+          // Boomerang returns to sender, remove when it reaches start position after returning
+          if (projectile.hasReturned && projectile.startPosition) {
+            return calculateDistance(projectile.position, projectile.startPosition) > 1;
+          }
+          return true;
+        }
+        
+        if (projectile.weaponType === WeaponType.FLAMETHROWER) {
+          // Flamethrower has limited range
+          const weaponConfig = WEAPON_CONFIGS[WeaponType.FLAMETHROWER];
+          if (projectile.startPosition) {
+            return calculateDistance(projectile.position, projectile.startPosition) <= weaponConfig.range;
+          }
+        }
+        
+        return isValidPosition(projectile.position.x, projectile.position.y);
+      });
     
     return newState;
+  }
+  
+  private updateBoomerangPosition(projectile: Projectile, currentTime: number): Position {
+    if (!projectile.startPosition) return projectile.position;
+    
+    const weaponConfig = WEAPON_CONFIGS[WeaponType.BOOMERANG];
+    const distanceFromStart = calculateDistance(projectile.position, projectile.startPosition);
+    
+    // If boomerang has reached max range, start returning
+    if (distanceFromStart >= weaponConfig.range && !projectile.hasReturned) {
+      projectile.hasReturned = true;
+      // Reverse direction to return to sender
+      projectile.direction = {
+        x: -projectile.direction.x,
+        y: -projectile.direction.y,
+      };
+    }
+    
+    return {
+      x: projectile.position.x + projectile.direction.x,
+      y: projectile.position.y + projectile.direction.y,
+    };
   }
 
   private updatePowerUps(gameState: GameState, currentTime: number): GameState {
@@ -548,20 +610,67 @@ export class GameLogic {
     const projectilesToRemove: Projectile[] = [];
     
     newState.enemies = gameState.enemies.map(enemy => {
-      const hitProjectiles = gameState.projectiles.filter(projectile => 
-        projectile.ownerId === 'player' && 
-        checkCollision(projectile.position, enemy.position) &&
-        !enemy.isDestroyed
-      );
+      let hitProjectiles: Projectile[] = [];
+      
+      // Check different collision types based on weapon
+      gameState.projectiles.forEach(projectile => {
+        if (projectile.ownerId !== 'player' || enemy.isDestroyed) return;
+        
+        let isHit = false;
+        
+        switch (projectile.weaponType) {
+          case WeaponType.GRENADE:
+            // Area effect damage
+            if (checkCollision(projectile.position, enemy.position)) {
+              isHit = true;
+              // Also damage enemies in explosion radius
+              const explosionPositions = getExplosionPositions(projectile.position, 2);
+              isHit = isHit || explosionPositions.some(pos => checkCollision(pos, enemy.position));
+            }
+            break;
+            
+          case WeaponType.FLAMETHROWER:
+            // Continuous damage stream
+            if (projectile.startPosition) {
+              const flamePositions = getFlamePositions(projectile.startPosition, projectile.position);
+              isHit = flamePositions.some(pos => checkCollision(pos, enemy.position));
+            }
+            break;
+            
+          case WeaponType.SPEAR:
+            // Penetrating weapon - check if already hit this enemy
+            if (checkCollision(projectile.position, enemy.position)) {
+              if (!projectile.penetratedEnemies?.includes(enemy.id)) {
+                isHit = true;
+                // Mark this enemy as penetrated
+                if (!projectile.penetratedEnemies) projectile.penetratedEnemies = [];
+                projectile.penetratedEnemies.push(enemy.id);
+              }
+            }
+            break;
+            
+          default:
+            // Standard collision for rifle and boomerang
+            isHit = checkCollision(projectile.position, enemy.position);
+        }
+        
+        if (isHit) {
+          hitProjectiles.push(projectile);
+        }
+      });
       
       if (hitProjectiles.length > 0 && !enemy.isDestroyed) {
-        projectilesToRemove.push(...hitProjectiles);
+        // Only remove non-penetrating projectiles
+        const nonPenetratingHits = hitProjectiles.filter(p => !p.penetration);
+        projectilesToRemove.push(...nonPenetratingHits);
         
-        const newHealth = Math.max(0, enemy.health - hitProjectiles.length);
+        // Calculate total damage
+        const totalDamage = hitProjectiles.reduce((total, p) => total + p.damage, 0);
+        const newHealth = Math.max(0, enemy.health - totalDamage);
         
         if (newHealth <= 0) {
           // Enemy destroyed
-          newState.score += 100;
+          newState.score += 100 * hitProjectiles.length; // Bonus for multi-hit
           return {
             ...enemy,
             health: 0,
@@ -638,20 +747,73 @@ export class GameLogic {
   }
 
   public createProjectile(position: Position, direction: Position, ownerId: string): Projectile {
+    // Get weapon type from owner
+    let weaponType = WeaponType.RIFLE; // default
+    let weaponConfig = WEAPON_CONFIGS[weaponType];
+    
+    // If player is shooting, use their hero's weapon type
+    if (ownerId === 'player') {
+      // This would need to be passed in or retrieved from game state
+      // For now, we'll use a parameter or default to rifle
+    }
+    
     return {
       id: generateId(),
       position: { ...position },
       direction,
-      speed: GAME_CONFIG.PROJECTILE_SPEED,
+      speed: weaponConfig.speed,
       ownerId,
-      color: ownerId === 'player' ? COLORS.PLAYER_PROJECTILE : COLORS.ENEMY_PROJECTILE,
+      color: ownerId === 'player' ? weaponConfig.color : COLORS.ENEMY_PROJECTILE,
       lastMoveTime: Date.now(),
+      weaponType,
+      damage: weaponConfig.damage,
+      penetration: weaponConfig.penetration,
+      areaEffect: weaponConfig.areaEffect,
+      returning: weaponConfig.returning,
+      continuous: weaponConfig.continuous,
+      startPosition: weaponConfig.returning || weaponConfig.continuous ? { ...position } : undefined,
+      hasReturned: false,
+      explosionRadius: weaponConfig.areaEffect ? 2 : undefined,
+      penetratedEnemies: [],
+    };
+  }
+  
+  public createProjectileWithWeapon(position: Position, direction: Position, ownerId: string, weaponType: WeaponType): Projectile {
+    const weaponConfig = WEAPON_CONFIGS[weaponType];
+    
+    return {
+      id: generateId(),
+      position: { ...position },
+      direction,
+      speed: weaponConfig.speed,
+      ownerId,
+      color: ownerId === 'player' ? weaponConfig.color : COLORS.ENEMY_PROJECTILE,
+      lastMoveTime: Date.now(),
+      weaponType,
+      damage: weaponConfig.damage,
+      penetration: weaponConfig.penetration,
+      areaEffect: weaponConfig.areaEffect,
+      returning: weaponConfig.returning,
+      continuous: weaponConfig.continuous,
+      startPosition: weaponConfig.returning || weaponConfig.continuous ? { ...position } : undefined,
+      hasReturned: false,
+      explosionRadius: weaponConfig.areaEffect ? 2 : undefined,
+      penetratedEnemies: [],
     };
   }
 
   public getPlayerShootCooldown(gameState: GameState): number {
     const hasRapidFire = gameState.activePowerUps.some(powerUp => powerUp.type === 'rapidFire');
-    const baseCooldown = gameState.selectedHeroType?.shootCooldown || GAME_CONFIG.SHOOT_COOLDOWN;
+    
+    // Use weapon-specific cooldown if hero has a weapon type
+    let baseCooldown = GAME_CONFIG.SHOOT_COOLDOWN;
+    if (gameState.selectedHeroType?.weaponType) {
+      const weaponConfig = WEAPON_CONFIGS[gameState.selectedHeroType.weaponType];
+      baseCooldown = weaponConfig.cooldown;
+    } else {
+      baseCooldown = gameState.selectedHeroType?.shootCooldown || GAME_CONFIG.SHOOT_COOLDOWN;
+    }
+    
     return hasRapidFire ? baseCooldown * GAME_CONFIG.POWER_UP_SHOOT_MULTIPLIER : baseCooldown;
   }
 

@@ -29,10 +29,12 @@ const GridGame: React.FC = () => {
     const shootCooldown = gameLogic.current.getPlayerShootCooldown(gameState);
     
     if (currentTime - gameState.player.lastShootTime >= shootCooldown) {
-      const projectile = gameLogic.current.createProjectile(
+      const weaponType = gameState.selectedHeroType?.weaponType || 'rifle';
+      const projectile = gameLogic.current.createProjectileWithWeapon(
         gameState.player.position,
         direction,
-        'player'
+        'player',
+        weaponType
       );
       
       setGameState(prev => ({
@@ -402,11 +404,11 @@ const GridGame: React.FC = () => {
         {/* Hero Stats */}
         {gameState.selectedHeroType && (
           <div className="mt-3 flex items-center justify-center space-x-6 text-xs text-gray-600">
+            <span>Weapon: {WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].name}</span>
+            <span>•</span>
             <span>Move Speed: {gameState.selectedHeroType.moveSpeed}ms</span>
             <span>•</span>
-            <span>Shoot Rate: {gameState.selectedHeroType.shootCooldown}ms</span>
-            <span>•</span>
-            <span>Max Health: {gameState.selectedHeroType.maxHealth}</span>
+            <span>Shoot Rate: {WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].cooldown}ms</span>
           </div>
         )}
         
@@ -562,10 +564,17 @@ const GridGame: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-mono">↑↓←→</kbd>
-                <span className="text-gray-600">Shoot projectiles</span>
+                <span className="text-gray-600">Fire {gameState.selectedHeroType ? WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].name.toLowerCase() : 'weapon'}</span>
               </div>
               <div className="text-xs text-gray-500">200ms projectile speed</div>
-              <div className="text-xs text-gray-500">{gameState.selectedHeroType?.shootCooldown || 300}ms cooldown between shots</div>
+              <div className="text-xs text-gray-500">
+                {gameState.selectedHeroType ? WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].cooldown : 300}ms cooldown between shots
+              </div>
+              {gameState.selectedHeroType && (
+                <div className="text-xs text-gray-500">
+                  {WEAPON_CONFIGS[gameState.selectedHeroType.weaponType].description}
+                </div>
+              )}
             </div>
           </div>
           
@@ -650,6 +659,6 @@ const GridGame: React.FC = () => {
 };
 
 // Import POWER_UP_TYPES for the component
-import { POWER_UP_TYPES } from '../config/GameConfig';
+import { POWER_UP_TYPES, WEAPON_CONFIGS } from '../config/GameConfig';
 
 export default GridGame;

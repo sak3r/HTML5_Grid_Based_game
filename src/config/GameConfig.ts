@@ -1,5 +1,5 @@
 import { GameConfig, HeroType } from '../types/GameTypes';
-import { EnemyType, BehaviorPattern } from '../types/GameTypes';
+import { EnemyType, BehaviorPattern, WeaponType, WeaponConfig } from '../types/GameTypes';
 
 export const GAME_CONFIG: GameConfig = {
   CANVAS_WIDTH: 800,
@@ -28,6 +28,85 @@ export const GAME_CONFIG: GameConfig = {
 export const GRID_COLS = Math.floor(GAME_CONFIG.CANVAS_WIDTH / GAME_CONFIG.GRID_SIZE);
 export const GRID_ROWS = Math.floor(GAME_CONFIG.CANVAS_HEIGHT / GAME_CONFIG.GRID_SIZE);
 
+// Weapon Configurations
+export const WEAPON_CONFIGS: Record<WeaponType, WeaponConfig> = {
+  [WeaponType.RIFLE]: {
+    type: WeaponType.RIFLE,
+    name: 'Rifle',
+    description: 'Basic projectile weapon with good accuracy',
+    damage: 1,
+    cooldown: 300,
+    range: 10,
+    speed: 200,
+    color: '#60a5fa',
+    icon: '🔫',
+    penetration: false,
+    areaEffect: false,
+    returning: false,
+    continuous: false,
+  },
+  [WeaponType.SPEAR]: {
+    type: WeaponType.SPEAR,
+    name: 'Spear',
+    description: 'Penetrates through multiple enemies',
+    damage: 2,
+    cooldown: 500,
+    range: 8,
+    speed: 250,
+    color: '#8b5cf6',
+    icon: '🗡️',
+    penetration: true,
+    areaEffect: false,
+    returning: false,
+    continuous: false,
+  },
+  [WeaponType.BOOMERANG]: {
+    type: WeaponType.BOOMERANG,
+    name: 'Boomerang',
+    description: 'Curved trajectory, returns to sender',
+    damage: 1,
+    cooldown: 800,
+    range: 6,
+    speed: 300,
+    color: '#f59e0b',
+    icon: '🪃',
+    penetration: false,
+    areaEffect: false,
+    returning: true,
+    continuous: false,
+  },
+  [WeaponType.GRENADE]: {
+    type: WeaponType.GRENADE,
+    name: 'Grenade',
+    description: 'Area effect explosion damage',
+    damage: 3,
+    cooldown: 1200,
+    range: 5,
+    speed: 400,
+    color: '#ef4444',
+    icon: '💣',
+    penetration: false,
+    areaEffect: true,
+    returning: false,
+    continuous: false,
+  },
+  [WeaponType.FLAMETHROWER]: {
+    type: WeaponType.FLAMETHROWER,
+    name: 'Flamethrower',
+    description: 'Continuous damage stream',
+    damage: 1,
+    cooldown: 150,
+    range: 4,
+    speed: 100,
+    color: '#f97316',
+    icon: '🔥',
+    penetration: false,
+    areaEffect: false,
+    returning: false,
+    continuous: true,
+  },
+};
+
 // Hero Types
 export const HERO_TYPES: HeroType[] = [
   {
@@ -39,6 +118,7 @@ export const HERO_TYPES: HeroType[] = [
     moveSpeed: 500,
     shootCooldown: 300,
     description: 'Balanced fighter with good health and moderate speed',
+    weaponType: WeaponType.RIFLE,
   },
   {
     id: 'scout',
@@ -49,6 +129,7 @@ export const HERO_TYPES: HeroType[] = [
     moveSpeed: 300,
     shootCooldown: 200,
     description: 'Fast and agile with quick shooting but low health',
+    weaponType: WeaponType.BOOMERANG,
   },
   {
     id: 'tank',
@@ -59,6 +140,29 @@ export const HERO_TYPES: HeroType[] = [
     moveSpeed: 700,
     shootCooldown: 400,
     description: 'Heavy armor with high health but slower movement',
+    weaponType: WeaponType.GRENADE,
+  },
+  {
+    id: 'berserker',
+    name: 'Berserker',
+    color: '#7c2d12',
+    borderColor: '#451a03',
+    maxHealth: 3,
+    moveSpeed: 400,
+    shootCooldown: 500,
+    description: 'Fierce warrior with penetrating spear attacks',
+    weaponType: WeaponType.SPEAR,
+  },
+  {
+    id: 'pyro',
+    name: 'Pyro',
+    color: '#ea580c',
+    borderColor: '#c2410c',
+    maxHealth: 3,
+    moveSpeed: 450,
+    shootCooldown: 150,
+    description: 'Fire specialist with continuous flame attacks',
+    weaponType: WeaponType.FLAMETHROWER,
   },
 ];
 

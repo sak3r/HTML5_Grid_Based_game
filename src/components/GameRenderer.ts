@@ -633,13 +633,124 @@ export class GameRenderer {
     const pixelX = (projectile.position.x * GAME_CONFIG.GRID_SIZE) + (GAME_CONFIG.GRID_SIZE / 2) - 4;
     const pixelY = (projectile.position.y * GAME_CONFIG.GRID_SIZE) + (GAME_CONFIG.GRID_SIZE / 2) - 4;
 
-    this.ctx.fillStyle = projectile.color;
-    this.ctx.fillRect(pixelX, pixelY, 8, 8);
+    // Draw different shapes based on weapon type
+    switch (projectile.weaponType) {
+      case 'rifle':
+        this.drawRifleProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'spear':
+        this.drawSpearProjectile(pixelX, pixelY, projectile.color, projectile.direction);
+        break;
+      case 'boomerang':
+        this.drawBoomerangProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'grenade':
+        this.drawGrenadeProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'flamethrower':
+        this.drawFlameProjectile(pixelX, pixelY, projectile.color);
+        break;
+      default:
+        this.drawRifleProjectile(pixelX, pixelY, projectile.color);
+    }
+  }
+  
+  private drawRifleProjectile(x: number, y: number, color: string): void {
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(x, y, 8, 8);
 
     // Add glow effect
-    this.ctx.shadowColor = projectile.color;
+    this.ctx.shadowColor = color;
     this.ctx.shadowBlur = 4;
-    this.ctx.fillRect(pixelX, pixelY, 8, 8);
+    this.ctx.fillRect(x, y, 8, 8);
+    this.ctx.shadowBlur = 0;
+  }
+  
+  private drawSpearProjectile(x: number, y: number, color: string, direction: Position): void {
+    this.ctx.fillStyle = color;
+    
+    // Draw elongated projectile based on direction
+    if (Math.abs(direction.x) > Math.abs(direction.y)) {
+      // Horizontal spear
+      this.ctx.fillRect(x - 4, y + 2, 16, 4);
+    } else {
+      // Vertical spear
+      this.ctx.fillRect(x + 2, y - 4, 4, 16);
+    }
+    
+    // Add glow effect
+    this.ctx.shadowColor = color;
+    this.ctx.shadowBlur = 6;
+    this.ctx.fillStyle = color;
+    if (Math.abs(direction.x) > Math.abs(direction.y)) {
+      this.ctx.fillRect(x - 4, y + 2, 16, 4);
+    } else {
+      this.ctx.fillRect(x + 2, y - 4, 4, 16);
+    }
+    this.ctx.shadowBlur = 0;
+  }
+  
+  private drawBoomerangProjectile(x: number, y: number, color: string): void {
+    this.ctx.fillStyle = color;
+    
+    // Draw curved boomerang shape
+    this.ctx.beginPath();
+    this.ctx.arc(x + 4, y + 4, 6, 0, Math.PI);
+    this.ctx.arc(x + 4, y + 4, 6, Math.PI, 2 * Math.PI);
+    this.ctx.fill();
+    
+    // Add glow effect
+    this.ctx.shadowColor = color;
+    this.ctx.shadowBlur = 5;
+    this.ctx.beginPath();
+    this.ctx.arc(x + 4, y + 4, 6, 0, 2 * Math.PI);
+    this.ctx.fill();
+    this.ctx.shadowBlur = 0;
+  }
+  
+  private drawGrenadeProjectile(x: number, y: number, color: string): void {
+    this.ctx.fillStyle = color;
+    
+    // Draw round grenade
+    this.ctx.beginPath();
+    this.ctx.arc(x + 4, y + 4, 6, 0, 2 * Math.PI);
+    this.ctx.fill();
+    
+    // Add fuse effect
+    this.ctx.strokeStyle = '#ffff00';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + 4, y - 2);
+    this.ctx.lineTo(x + 4, y + 2);
+    this.ctx.stroke();
+    
+    // Add glow effect
+    this.ctx.shadowColor = color;
+    this.ctx.shadowBlur = 8;
+    this.ctx.beginPath();
+    this.ctx.arc(x + 4, y + 4, 6, 0, 2 * Math.PI);
+    this.ctx.fill();
+    this.ctx.shadowBlur = 0;
+  }
+  
+  private drawFlameProjectile(x: number, y: number, color: string): void {
+    // Draw flame particle
+    const flameColors = ['#ff4500', '#ff6500', '#ff8500', '#ffa500'];
+    const randomColor = flameColors[Math.floor(Math.random() * flameColors.length)];
+    
+    this.ctx.fillStyle = randomColor;
+    
+    // Draw irregular flame shape
+    this.ctx.beginPath();
+    this.ctx.arc(x + 4, y + 4, 4 + Math.random() * 3, 0, 2 * Math.PI);
+    this.ctx.fill();
+    
+    // Add intense glow effect
+    this.ctx.shadowColor = randomColor;
+    this.ctx.shadowBlur = 10;
+    this.ctx.beginPath();
+    this.ctx.arc(x + 4, y + 4, 3, 0, 2 * Math.PI);
+    this.ctx.fill();
     this.ctx.shadowBlur = 0;
   }
 

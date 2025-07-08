@@ -3,6 +3,30 @@ export interface Position {
   y: number;
 }
 
+export enum WeaponType {
+  RIFLE = 'rifle',
+  SPEAR = 'spear',
+  BOOMERANG = 'boomerang',
+  GRENADE = 'grenade',
+  FLAMETHROWER = 'flamethrower'
+}
+
+export interface WeaponConfig {
+  type: WeaponType;
+  name: string;
+  description: string;
+  damage: number;
+  cooldown: number;
+  range: number;
+  speed: number;
+  color: string;
+  icon: string;
+  penetration: boolean;
+  areaEffect: boolean;
+  returning: boolean;
+  continuous: boolean;
+}
+
 export interface Projectile {
   id: string;
   position: Position;
@@ -11,6 +35,17 @@ export interface Projectile {
   ownerId: string;
   color: string;
   lastMoveTime: number;
+  weaponType: WeaponType;
+  damage: number;
+  penetration: boolean;
+  areaEffect: boolean;
+  returning: boolean;
+  continuous: boolean;
+  startPosition?: Position;
+  hasReturned?: boolean;
+  explosionRadius?: number;
+  flameLength?: number;
+  penetratedEnemies?: string[];
 }
 
 export interface Enemy {
@@ -179,6 +214,7 @@ export interface HeroType {
   moveSpeed: number;
   shootCooldown: number;
   description: string;
+  weaponType: WeaponType;
 }
 
 export interface CollectibleHero {
