@@ -828,8 +828,4 @@ const GridGame: React.FC = () => {
   );
 };
 
-// Import POWER_UP_TYPES for the component
-import { POWER_UP_TYPES, WEAPON_CONFIGS, HERO_TYPES, GAME_CONFIG } from '../config/GameConfig';
-import { WeaponType } from '../types/GameTypes';
-
 export default GridGame;

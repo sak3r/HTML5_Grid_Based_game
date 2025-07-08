@@ -67,9 +67,7 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl w-full">
-          {HERO_TYPES.map((hero) => (
-            {HERO_TYPES.map((hero) => {
+        {HERO_TYPES.map((hero) => {
               const isUnlocked = isHeroUnlocked(hero.id);
               
               return (
@@ -188,9 +186,8 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
               {/* Hover Effect */}
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
-              );
-            })}
-        </div>
+          );
+        })}
       </div>
 
       <div className="mt-12 text-center">
