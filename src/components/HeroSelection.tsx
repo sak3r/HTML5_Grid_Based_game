@@ -52,100 +52,116 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ onHeroSelect }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
-        {HERO_TYPES.map((hero) => (
-          <div
-            key={hero.id}
-            onClick={() => onHeroSelect(hero)}
-            className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 hover:border-white/40 transition-all duration-300 cursor-pointer hover:scale-105 hover:bg-white/15"
-          >
-            {/* Hero Icon */}
-            <div 
-              className="flex items-center justify-center w-20 h-20 rounded-full mx-auto mb-6 transition-transform duration-300 group-hover:scale-110"
-              style={{ backgroundColor: hero.color, borderColor: hero.borderColor, borderWidth: '3px' }}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl w-full">
+          {HERO_TYPES.map((hero) => (
+            <div
+              key={hero.id}
+              onClick={() => onHeroSelect(hero)}
+              className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:border-white/40 transition-all duration-300 cursor-pointer hover:scale-105 hover:bg-white/15"
             >
-              <div className="text-white">
-                {getHeroIcon(hero.id)}
-              </div>
-            </div>
-
-            {/* Hero Name */}
-            <h2 className="text-2xl font-bold text-white text-center mb-3">
-              {hero.name}
-            </h2>
-
-            {/* Hero Description */}
-            <p className="text-gray-300 text-center mb-6 text-sm leading-relaxed">
-              {hero.description}
-            </p>
-
-            {/* Weapon Info */}
-            <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-              <div className="flex items-center justify-center space-x-2 mb-2">
-                <span className="text-2xl">{WEAPON_CONFIGS[hero.weaponType].icon}</span>
-                <span className="text-white font-medium">{WEAPON_CONFIGS[hero.weaponType].name}</span>
-              </div>
-              <p className="text-gray-400 text-xs text-center">
-                {WEAPON_CONFIGS[hero.weaponType].description}
-              </p>
-              <div className="mt-2 flex justify-center space-x-4 text-xs">
-                <span className="text-gray-400">
-                  Damage: <span className="text-white">{WEAPON_CONFIGS[hero.weaponType].damage}</span>
-                </span>
-                <span className="text-gray-400">
-                  Range: <span className="text-white">{WEAPON_CONFIGS[hero.weaponType].range}</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-sm">Health:</span>
-                <div className="flex items-center space-x-2">
-                  <span className={`font-bold ${getStatColor(hero.maxHealth, 'health')}`}>
-                    {hero.maxHealth}
-                  </span>
-                  <div className="flex space-x-1">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <div
-                        key={i}
-                        className={`w-3 h-3 rounded-full ${
-                          i < hero.maxHealth ? 'bg-red-500' : 'bg-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
+              {/* Hero Icon */}
+              <div 
+                className="flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-4 transition-transform duration-300 group-hover:scale-110"
+                style={{ backgroundColor: hero.color, borderColor: hero.borderColor, borderWidth: '3px' }}
+              >
+                <div className="text-white">
+                  {getHeroIcon(hero.id)}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-sm">Move Speed:</span>
-                <span className={`font-bold ${getStatColor(hero.moveSpeed, 'speed')}`}>
-                  {hero.moveSpeed}ms
+              {/* Hero Name */}
+              <h2 className="text-xl font-bold text-white text-center mb-2">
+                {hero.name}
+              </h2>
+              
+              {/* Role */}
+              <div className="text-center mb-3">
+                <span className="inline-block px-2 py-1 bg-white/20 rounded-full text-xs font-medium text-white">
+                  {hero.role}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-sm">Shoot Rate:</span>
-                <span className={`font-bold ${getStatColor(WEAPON_CONFIGS[hero.weaponType].cooldown, 'cooldown')}`}>
-                  {WEAPON_CONFIGS[hero.weaponType].cooldown}ms
-                </span>
+              {/* Hero Description */}
+              <p className="text-gray-300 text-center mb-4 text-xs leading-relaxed">
+                {hero.description}
+              </p>
+
+              {/* Weapon Info */}
+              <div className="mb-4 p-3 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex items-center justify-center space-x-2 mb-1">
+                  <span className="text-lg">{WEAPON_CONFIGS[hero.weaponType].icon}</span>
+                  <span className="text-white font-medium text-sm">{WEAPON_CONFIGS[hero.weaponType].name}</span>
+                </div>
+                <p className="text-gray-400 text-xs text-center">
+                  {WEAPON_CONFIGS[hero.weaponType].description}
+                </p>
+                <div className="mt-1 flex justify-center space-x-3 text-xs">
+                  <span className="text-gray-400">
+                    DMG: <span className="text-white">{WEAPON_CONFIGS[hero.weaponType].damage}</span>
+                  </span>
+                  <span className="text-gray-400">
+                    RNG: <span className="text-white">{WEAPON_CONFIGS[hero.weaponType].range}</span>
+                  </span>
+                </div>
               </div>
+              
+              {/* Special Ability */}
+              <div className="mb-4 p-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded border border-purple-300/30">
+                <p className="text-purple-200 text-xs text-center font-medium">
+                  {hero.specialAbility}
+                </p>
+              </div>
+
+              {/* Stats */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400 text-xs">Health:</span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`font-bold ${getStatColor(hero.maxHealth, 'health')}`}>
+                      {hero.maxHealth}
+                    </span>
+                    <div className="flex space-x-1">
+                      {Array.from({ length: Math.min(6, hero.maxHealth) }, (_, i) => (
+                        <div
+                          key={i}
+                          className={`w-2 h-2 rounded-full ${
+                            i < hero.maxHealth ? 'bg-red-500' : 'bg-gray-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400 text-xs">Speed:</span>
+                  <span className={`font-bold ${getStatColor(hero.moveSpeed, 'speed')}`}>
+                    {hero.moveSpeed}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400 text-xs">Fire Rate:</span>
+                  <span className={`font-bold ${getStatColor(WEAPON_CONFIGS[hero.weaponType].cooldown, 'cooldown')}`}>
+                    {WEAPON_CONFIGS[hero.weaponType].cooldown}
+                  </span>
+                </div>
+              </div>
+
+              {/* Selection Indicator */}
+              <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-white/50 transition-all duration-300" />
+              
+              {/* Hover Effect */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
-
-            {/* Selection Indicator */}
-            <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-white/50 transition-all duration-300" />
-            
-            {/* Hover Effect */}
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="mt-12 text-center">
         <p className="text-gray-400 text-sm max-w-2xl mx-auto">
-          💡 <strong>Tip:</strong> Each hero has unique weapons and abilities. Rangers excel at long-range combat, 
-          Ninjas are fast but fragile, Mages can shoot through walls, Vikings dominate in melee, and Archers can shoot over obstacles!
+          💡 <strong>Tip:</strong> Warriors are great for beginners, Scouts excel at hit-and-run tactics, 
+          and Tanks can absorb more damage but move slower. Choose wisely!
         </p>
       </div>
     </div>
