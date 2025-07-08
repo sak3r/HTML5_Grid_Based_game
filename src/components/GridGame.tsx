@@ -19,16 +19,32 @@ interface Enemy {
 interface GameState {
   player: Position;
   enemies: Enemy[];
-  keys: Set<string>;
-}
-
-interface KeyTimers {
-  timeoutId: NodeJS.Timeout | null;
-  intervalId: NodeJS.Timeout | null;
+  lastPlayerMoveTime: number;
 }
 
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>();
+  const pressedKeys = useRef<Set<string>>(new Set());
+  const lastFrameTime = useRef<number>(0);
+
+  // Game constants
+  const CANVAS_WIDTH = 800;
+  const CANVAS_HEIGHT = 600;
+  const GRID_SIZE = 32;
+  const GRID_COLS = Math.floor(CANVAS_WIDTH / GRID_SIZE);
+  const GRID_ROWS = Math.floor(CANVAS_HEIGHT / GRID_SIZE);
+  const PLAYER_SPEED = 64; // pixels per second (400ms per cell)
+  const ENEMY_SPEED = 40; // pixels per second (slower than player)
+
+  // Colors
+  const GRID_COLOR = '#e5e7eb';
+  const GRID_BORDER_COLOR = '#d1d5db';
+  const PLAYER_COLOR = '#3b82f6';
+  const PLAYER_BORDER_COLOR = '#1e40af';
+  const BACKGROUND_COLOR = '#f9fafb';
+  const PATROL_RADIUS_COLOR = 'rgba(255, 0, 0, 0.1)';
+
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 12, y: 17 }, // Start at bottom center
     enemies: [
@@ -73,28 +89,8 @@ const GridGame: React.FC = () => {
         lastMoveTime: 0
       }
     ],
-    keys: new Set()
+    lastPlayerMoveTime: 0
   });
-  const animationRef = useRef<number>();
-  const keyTimersRef = useRef<Map<string, KeyTimers>>(new Map());
-  const lastPlayerMoveTime = useRef<number>(0);
-
-  // Game constants
-  const CANVAS_WIDTH = 800;
-  const CANVAS_HEIGHT = 600;
-  const GRID_SIZE = 32;
-  const GRID_COLS = Math.floor(CANVAS_WIDTH / GRID_SIZE);
-  const GRID_ROWS = Math.floor(CANVAS_HEIGHT / GRID_SIZE);
-  const PLAYER_MOVE_DELAY = 500; // 500ms to cross a cell
-  const ENEMY_MOVE_DELAY = 800; // Enemies move slower
-
-  // Colors
-  const GRID_COLOR = '#e5e7eb';
-  const GRID_BORDER_COLOR = '#d1d5db';
-  const PLAYER_COLOR = '#3b82f6';
-  const PLAYER_BORDER_COLOR = '#1e40af';
-  const BACKGROUND_COLOR = '#f9fafb';
-  const PATROL_RADIUS_COLOR = 'rgba(255, 0, 0, 0.1)';
 
   const calculateDistance = (pos1: Position, pos2: Position): number => {
     return Math.sqrt(Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2));
@@ -198,7 +194,7 @@ const GridGame: React.FC = () => {
   const isValidPlayerMove = useCallback((newX: number, newY: number): boolean => {
     // Player can only exit through the top edge (y = -1), otherwise must stay within bounds
     if (newY < 0) {
-      return newY === -1; // Only allow exit through top
+      return newY === -1 && newX >= 0 && newX < GRID_COLS; // Only allow exit through top with valid x
     }
     
     // Check other boundaries
@@ -208,22 +204,6 @@ const GridGame: React.FC = () => {
     
     return true;
   }, [GRID_COLS, GRID_ROWS]);
-
-  const movePlayer = useCallback((direction: Position) => {
-    const currentTime = Date.now();
-    if (currentTime - lastPlayerMoveTime.current < PLAYER_MOVE_DELAY) {
-      return; // Too soon to move again
-    }
-
-    const currentPlayer = gameState.player;
-    const newX = currentPlayer.x + direction.x;
-    const newY = currentPlayer.y + direction.y;
-
-    if (isValidPlayerMove(newX, newY)) {
-      lastPlayerMoveTime.current = currentTime;
-      setGameState(prev => ({ ...prev, player: { x: newX, y: newY } }));
-    }
-  }, [gameState.player, isValidPlayerMove, PLAYER_MOVE_DELAY]);
 
   const moveEnemyTowardsTarget = useCallback((enemy: Enemy, target: Position): Position => {
     const dx = target.x - enemy.position.x;
@@ -247,13 +227,43 @@ const GridGame: React.FC = () => {
     return { x: newX, y: newY };
   }, [GRID_COLS, GRID_ROWS]);
 
-  const updateEnemies = useCallback(() => {
+  const updateGame = useCallback((deltaTime: number) => {
     const currentTime = Date.now();
     
+    // Handle player movement
+    let deltaX = 0;
+    let deltaY = 0;
+    
+    if (pressedKeys.current.has('KeyW') || pressedKeys.current.has('ArrowUp')) deltaY -= 1;
+    if (pressedKeys.current.has('KeyS') || pressedKeys.current.has('ArrowDown')) deltaY += 1;
+    if (pressedKeys.current.has('KeyA') || pressedKeys.current.has('ArrowLeft')) deltaX -= 1;
+    if (pressedKeys.current.has('KeyD') || pressedKeys.current.has('ArrowRight')) deltaX += 1;
+
+    // Normalize diagonal movement
+    if (deltaX !== 0 && deltaY !== 0) {
+      deltaX *= 0.7071; // 1/sqrt(2)
+      deltaY *= 0.7071;
+    }
+
+    // Apply movement if enough time has passed
+    if (currentTime - gameState.lastPlayerMoveTime >= 400 && (deltaX !== 0 || deltaY !== 0)) {
+      const newX = gameState.player.x + Math.sign(deltaX);
+      const newY = gameState.player.y + Math.sign(deltaY);
+      
+      if (isValidPlayerMove(newX, newY)) {
+        setGameState(prev => ({
+          ...prev,
+          player: { x: newX, y: newY },
+          lastPlayerMoveTime: currentTime
+        }));
+      }
+    }
+
+    // Update enemies
     setGameState(prev => ({
       ...prev,
       enemies: prev.enemies.map(enemy => {
-        if (currentTime - enemy.lastMoveTime < ENEMY_MOVE_DELAY) {
+        if (currentTime - enemy.lastMoveTime < 800) {
           return enemy; // Too soon to move
         }
 
@@ -262,13 +272,10 @@ const GridGame: React.FC = () => {
         
         let newPosition = enemy.position;
         
-        if (shouldChase && !enemy.isChasing) {
-          // Start chasing
+        if (shouldChase) {
+          // Chase player
           newPosition = moveEnemyTowardsTarget(enemy, prev.player);
-        } else if (shouldChase && enemy.isChasing) {
-          // Continue chasing
-          newPosition = moveEnemyTowardsTarget(enemy, prev.player);
-        } else if (!shouldChase && enemy.isChasing) {
+        } else if (enemy.isChasing) {
           // Return to original position
           if (enemy.position.x !== enemy.originalPosition.x || enemy.position.y !== enemy.originalPosition.y) {
             newPosition = moveEnemyTowardsTarget(enemy, enemy.originalPosition);
@@ -285,58 +292,24 @@ const GridGame: React.FC = () => {
         };
       })
     }));
-  }, [calculateDistance, moveEnemyTowardsTarget, ENEMY_MOVE_DELAY]);
+  }, [gameState, isValidPlayerMove, calculateDistance, moveEnemyTowardsTarget]);
 
-  const handleMovement = useCallback(() => {
-    const keys = gameState.keys;
-    let deltaX = 0;
-    let deltaY = 0;
+  const gameLoop = useCallback((timestamp: number) => {
+    const deltaTime = timestamp - lastFrameTime.current;
+    lastFrameTime.current = timestamp;
 
-    if (keys.has('KeyW') || keys.has('ArrowUp')) deltaY -= 1;
-    if (keys.has('KeyS') || keys.has('ArrowDown')) deltaY += 1;
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) deltaX -= 1;
-    if (keys.has('KeyD') || keys.has('ArrowRight')) deltaX += 1;
-
-    if (deltaX !== 0 || deltaY !== 0) {
-      movePlayer({ x: deltaX, y: deltaY });
-    }
-  }, [gameState.keys, movePlayer]);
-
-  const gameLoop = useCallback(() => {
+    updateGame(deltaTime);
     render();
-    updateEnemies();
+    
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [render, updateEnemies]);
+  }, [updateGame, render]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.code;
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
         event.preventDefault();
-
-        if (!gameState.keys.has(key)) {
-          setGameState(prev => {
-            const newKeys = new Set(prev.keys);
-            newKeys.add(key);
-            return { ...prev, keys: newKeys };
-          });
-
-          const timers: KeyTimers = { timeoutId: null, intervalId: null };
-          keyTimersRef.current.set(key, timers);
-
-          // Immediate first move
-          handleMovement();
-
-          // Then set up repeated movement
-          timers.intervalId = setInterval(() => {
-            if (gameState.keys.has(key)) {
-              handleMovement();
-            } else {
-              if (timers.intervalId) clearInterval(timers.intervalId);
-              timers.intervalId = null;
-            }
-          }, 100); // Check every 100ms, but actual movement is limited by PLAYER_MOVE_DELAY
-        }
+        pressedKeys.current.add(key);
       }
     };
 
@@ -344,18 +317,7 @@ const GridGame: React.FC = () => {
       const key = event.code;
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
         event.preventDefault();
-        setGameState(prev => {
-          const newKeys = new Set(prev.keys);
-          newKeys.delete(key);
-          return { ...prev, keys: newKeys };
-        });
-
-        const timers = keyTimersRef.current.get(key);
-        if (timers) {
-          if (timers.timeoutId) clearTimeout(timers.timeoutId);
-          if (timers.intervalId) clearInterval(timers.intervalId);
-          keyTimersRef.current.delete(key);
-        }
+        pressedKeys.current.delete(key);
       }
     };
 
@@ -365,17 +327,11 @@ const GridGame: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-
-      keyTimersRef.current.forEach(timers => {
-        if (timers.timeoutId) clearTimeout(timers.timeoutId);
-        if (timers.intervalId) clearInterval(timers.intervalId);
-      });
-      keyTimersRef.current.clear();
     };
-  }, [handleMovement, gameState.keys]);
+  }, []);
 
   useEffect(() => {
-    render();
+    lastFrameTime.current = performance.now();
     animationRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
@@ -383,7 +339,7 @@ const GridGame: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameLoop, render]);
+  }, [gameLoop]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
@@ -428,7 +384,7 @@ const GridGame: React.FC = () => {
           <div className="space-y-2">
             <h3 className="font-medium text-gray-700">Game Rules</h3>
             <div className="space-y-1 text-gray-600">
-              <p>• Move 500ms per cell</p>
+              <p>• Move 400ms per cell</p>
               <p>• Exit only through the top edge</p>
               <p>• Avoid enemy patrol zones</p>
               <p>• Enemies chase when you enter their radius</p>
@@ -439,5 +395,7 @@ const GridGame: React.FC = () => {
     </div>
   );
 };
+
+export default GridGame;
 
 export default GridGame;
