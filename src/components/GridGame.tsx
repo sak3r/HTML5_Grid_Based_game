@@ -6,6 +6,8 @@ import { GameLogic } from './GameLogic';
 import HeroSelection from './HeroSelection';
 import EditorSidebar from './EditorSidebar';
 import EnemyConfigPanel from './EnemyConfigPanel';
+import TimerDisplay from './TimerDisplay';
+import TimerConfigPanel from './TimerConfigPanel';
 
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,6 +19,7 @@ const GridGame: React.FC = () => {
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showHeroSelection, setShowHeroSelection] = useState<boolean>(true);
+  const [showTimerConfig, setShowTimerConfig] = useState<boolean>(false);
 
   // Handle shooting
   const handleShooting = useCallback((direction: Position) => {
@@ -46,7 +49,11 @@ const GridGame: React.FC = () => {
   // Handle restart
   const handleRestart = useCallback(() => {
     if (gameState?.selectedHeroType) {
-      setGameState(gameLogic.current.createInitialGameState(gameState.selectedHeroType));
+      const newState = gameLogic.current.createInitialGameState(gameState.selectedHeroType);
+      // Preserve time limit from current game
+      newState.timeLimit = gameState.timeLimit;
+      newState.timeRemaining = gameState.timeLimit;
+      setGameState(gameLogic.current.resetTimer(newState));
     } else {
       setShowHeroSelection(true);
       setGameState(null);
@@ -93,6 +100,21 @@ const GridGame: React.FC = () => {
       setGameState(gameLogic.current.closeEnemyConfigPanel(gameState));
     }
   }, [gameState]);
+
+  const handleTimerConfig = useCallback(() => {
+    setShowTimerConfig(true);
+  }, []);
+
+  const handleTimerConfigConfirm = useCallback((timeLimit: number) => {
+    if (gameState) {
+      setGameState(gameLogic.current.setTimeLimit(gameState, timeLimit));
+    }
+    setShowTimerConfig(false);
+  }, [gameState]);
+
+  const handleTimerConfigCancel = useCallback(() => {
+    setShowTimerConfig(false);
+  }, []);
 
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!gameState) return;
@@ -335,6 +357,20 @@ const GridGame: React.FC = () => {
         className="flex flex-col items-center justify-center p-4 transition-all duration-300"
         style={{ width: mainContentWidth }}
       >
+      {/* Timer Display */}
+      {gameState && (
+        <div className="mb-6">
+          <TimerDisplay
+            timeRemaining={gameState.timeRemaining}
+            timeLimit={gameState.timeLimit}
+            isEditorMode={gameState.editorMode}
+            formatTime={gameLogic.current.formatTime}
+            getTimerColor={gameLogic.current.getTimerColor}
+            shouldPulse={gameLogic.current.shouldPulse}
+          />
+        </div>
+      )}
+
       <div className="mb-6 text-center">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
           {gameState.editorMode ? 'Level Editor' : `Enhanced Grid Game - ${gameState.selectedHeroType?.name || 'Unknown Hero'}`}
@@ -547,6 +583,7 @@ const GridGame: React.FC = () => {
           savedLevels={gameLogic.current.getSavedLevels()}
           selectedEnemyType={gameState.selectedEnemyType}
           onEnemyTypeSelect={handleEnemyTypeSelect}
+          onTimerConfig={handleTimerConfig}
         />
       )}
       
@@ -557,6 +594,15 @@ const GridGame: React.FC = () => {
           onConfirm={handleEnemyConfigConfirm}
           onCancel={handleEnemyConfigCancel}
           isEditing={!!gameState.selectedObject}
+        />
+      )}
+      
+      {/* Timer Configuration Panel */}
+      {showTimerConfig && gameState && (
+        <TimerConfigPanel
+          currentTimeLimit={gameState.timeLimit}
+          onConfirm={handleTimerConfigConfirm}
+          onCancel={handleTimerConfigCancel}
         />
       )}
     </div>
