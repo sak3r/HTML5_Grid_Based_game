@@ -8,6 +8,11 @@ import EditorSidebar from './EditorSidebar';
 import EnemyConfigPanel from './EnemyConfigPanel';
 import TimerDisplay from './TimerDisplay';
 import TimerConfigPanel from './TimerConfigPanel';
+import MainMenu from './MainMenu';
+import LevelSelectScreen from './LevelSelectScreen';
+import { CampaignManager } from './CampaignManager';
+import { CAMPAIGN_LEVELS } from '../config/CampaignConfig';
+import { CampaignProgress, LevelCompletionResult } from '../types/GameTypes';
 
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,6 +25,9 @@ const GridGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showHeroSelection, setShowHeroSelection] = useState<boolean>(true);
   const [showTimerConfig, setShowTimerConfig] = useState<boolean>(false);
+  const [gameMode, setGameMode] = useState<'menu' | 'campaign' | 'cooperative' | 'editor'>('menu');
+  const [campaignProgress, setCampaignProgress] = useState<CampaignProgress>(CampaignManager.loadProgress());
+  const [currentCampaignLevel, setCurrentCampaignLevel] = useState<number>(0);
 
   // Handle shooting
   const handleShooting = useCallback((direction: Position, playerNum: 1 | 2 = 1) => {
@@ -31,22 +39,101 @@ const GridGame: React.FC = () => {
 
   // Handle restart
   const handleRestart = useCallback(() => {
-    if (gameState?.player1HeroType) {
-      const newState = gameLogic.current.createInitialGameState(gameState.player1HeroType, gameState.gameMode);
+    if (gameState?.player1HeroType && gameMode !== 'campaign') {
+      const newState = gameLogic.current.createInitialGameState(gameState.player1HeroType, gameState.gameMode || 'cooperative');
       // Preserve time limit from current game
       newState.timeLimit = gameState.timeLimit;
       newState.timeRemaining = gameState.timeLimit;
       setGameState(gameLogic.current.resetTimer(newState));
+    } else if (gameMode === 'campaign') {
+      // Restart current campaign level
+      handleCampaignLevelStart(currentCampaignLevel);
     } else {
-      setShowHeroSelection(true);
-      setGameState(null);
+      handleBackToMenu();
     }
-  }, [gameState?.player1HeroType, gameState?.gameMode]);
+  }, [gameState?.player1HeroType, gameState?.gameMode, gameMode, currentCampaignLevel]);
 
-  const handleHeroSelect = useCallback((heroType: HeroType) => {
-    setGameState(gameLogic.current.createInitialGameState(heroType, 'cooperative'));
+  const handleHeroSelect = useCallback((heroType: HeroType, mode: 'cooperative' | 'campaign' = 'cooperative') => {
+    const newState = gameLogic.current.createInitialGameState(heroType, mode);
+    
+    if (mode === 'campaign') {
+      // Load campaign level data
+      const levelData = CAMPAIGN_LEVELS[currentCampaignLevel];
+      newState.campaignMode = true;
+      newState.currentCampaignLevel = currentCampaignLevel;
+      newState.timeLimit = levelData.difficultyScaling.timeLimit;
+      newState.timeRemaining = levelData.difficultyScaling.timeLimit;
+      
+      // Apply level data
+      newState.enemies = levelData.levelData.enemies;
+      newState.collectibleHeroes = levelData.levelData.collectibleHeroes;
+      newState.powerUps = levelData.levelData.powerUps;
+      newState.editorObjects = levelData.levelData.editorObjects;
+    }
+    
+    setGameState(gameLogic.current.resetTimer(newState));
     setShowHeroSelection(false);
+  }, [currentCampaignLevel]);
+
+  const handleBackToMenu = useCallback(() => {
+    setGameMode('menu');
+    setGameState(null);
+    setShowHeroSelection(true);
   }, []);
+
+  const handleStartCampaign = useCallback(() => {
+    setGameMode('campaign');
+  }, []);
+
+  const handleStartCooperative = useCallback(() => {
+    setGameMode('cooperative');
+    setShowHeroSelection(true);
+  }, []);
+
+  const handleStartEditor = useCallback(() => {
+    setGameMode('editor');
+    setShowHeroSelection(true);
+  }, []);
+
+  const handleCampaignLevelStart = useCallback((levelIndex: number) => {
+    setCurrentCampaignLevel(levelIndex);
+    setShowHeroSelection(true);
+  }, []);
+
+  const handleLevelComplete = useCallback(() => {
+    if (gameMode === 'campaign' && gameState) {
+      const timeElapsed = gameState.timeLimit - gameState.timeRemaining;
+      const allCaptivesRescued = gameState.captives.length === 0;
+      const perfectRun = gameState.player1.health === gameState.player1.maxHealth && 
+                        gameState.player2.health === gameState.player2.maxHealth;
+      
+      const result: LevelCompletionResult = {
+        levelId: currentCampaignLevel,
+        completed: true,
+        score: gameState.score,
+        timeElapsed,
+        allCaptivesRescued,
+        perfectRun,
+        newUnlocks: CampaignManager.calculateLevelRewards(
+          currentCampaignLevel,
+          gameState.score,
+          timeElapsed,
+          allCaptivesRescued,
+          perfectRun
+        ),
+      };
+      
+      const newProgress = CampaignManager.completeLevel(campaignProgress, result);
+      setCampaignProgress(newProgress);
+      CampaignManager.saveProgress(newProgress);
+      
+      // Show completion screen or return to level select
+      setTimeout(() => {
+        setGameMode('campaign');
+        setGameState(null);
+      }, 3000);
+    }
+  }, [gameMode, gameState, currentCampaignLevel, campaignProgress]);
 
   const handleEditorToggle = useCallback(() => {
     if (gameState) {
@@ -287,8 +374,7 @@ const GridGame: React.FC = () => {
       // Back to hero selection
       if (key === 'Escape') {
         event.preventDefault();
-        setShowHeroSelection(true);
-        setGameState(null);
+        handleBackToMenu();
       }
     };
 
@@ -307,7 +393,14 @@ const GridGame: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleShooting, handleRestart, handleEditorToggle, gameState?.gameStatus]);
+  }, [handleShooting, handleRestart, handleEditorToggle, handleBackToMenu, gameState?.gameStatus]);
+
+  // Check for level completion in campaign mode
+  useEffect(() => {
+    if (gameMode === 'campaign' && gameState?.gameStatus === 'victory') {
+      handleLevelComplete();
+    }
+  }, [gameMode, gameState?.gameStatus, handleLevelComplete]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -328,9 +421,39 @@ const GridGame: React.FC = () => {
     };
   }, [gameLoop]);
 
+  // Show main menu
+  if (gameMode === 'menu') {
+    return (
+      <MainMenu
+        onStartCampaign={handleStartCampaign}
+        onStartCooperative={handleStartCooperative}
+        onStartEditor={handleStartEditor}
+        onShowAchievements={() => {}} // TODO: Implement achievements screen
+      />
+    );
+  }
+
+  // Show campaign level select
+  if (gameMode === 'campaign' && !gameState) {
+    return (
+      <LevelSelectScreen
+        onLevelSelect={handleCampaignLevelStart}
+        onBackToMenu={handleBackToMenu}
+        campaignProgress={campaignProgress}
+        onProgressUpdate={setCampaignProgress}
+      />
+    );
+  }
+
   // Show hero selection screen
   if (showHeroSelection) {
-    return <HeroSelection onHeroSelect={handleHeroSelect} />;
+    return (
+      <HeroSelection 
+        onHeroSelect={(heroType) => handleHeroSelect(heroType, gameMode === 'campaign' ? 'campaign' : 'cooperative')}
+        gameMode={gameMode}
+        campaignProgress={campaignProgress}
+      />
+    );
   }
 
   // Show loading state
@@ -371,12 +494,19 @@ const GridGame: React.FC = () => {
 
       <div className="mb-6 text-center">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          {gameState.editorMode ? 'Level Editor' : `2-Player Cooperative Game - ${gameState.gameMode === 'cooperative' ? 'Cooperative' : 'Turn-Based'}`}
+          {gameState.editorMode 
+            ? 'Level Editor' 
+            : gameMode === 'campaign' 
+            ? `Campaign Level ${currentCampaignLevel + 1}: ${CAMPAIGN_LEVELS[currentCampaignLevel]?.name || 'Unknown'}`
+            : `2-Player Cooperative Game - ${gameState.gameMode === 'cooperative' ? 'Cooperative' : 'Turn-Based'}`
+          }
         </h1>
         <p className="text-gray-600">
           {gameState.editorMode 
             ? 'Click on the grid to place objects • E to toggle editor'
-            : 'P1: WASD + Arrows • P2: IJKL + Numpad • E for editor • ESC for hero selection'
+            : gameMode === 'campaign'
+            ? 'Campaign Mode: Complete objectives to progress • ESC for menu'
+            : 'P1: WASD + Arrows • P2: IJKL + Numpad • E for editor • ESC for menu'
           }
         </p>
         <div className="mt-2 flex items-center justify-center space-x-4 text-sm text-gray-500">
@@ -394,6 +524,13 @@ const GridGame: React.FC = () => {
           <span>•</span>
           <span>Status: {gameState.gameStatus}</span>
         </div>
+        
+        {gameMode === 'campaign' && (
+          <div className="mt-2 text-sm text-purple-600 font-medium">
+            Campaign Progress: {campaignProgress.completedLevels.length}/{CAMPAIGN_LEVELS.length} Levels • 
+            Total Score: {campaignProgress.totalScore.toLocaleString()}
+          </div>
+        )}
         
         {gameState.editorMode && (
           <div className="mt-2 text-sm text-blue-600 font-medium">Editor Mode Active - Selected Tool: {gameState.selectedTool}</div>
@@ -602,7 +739,7 @@ const GridGame: React.FC = () => {
           <div className="space-y-3">
             <h3 className="font-medium text-gray-700">Game Rules</h3>
             <div className="space-y-1 text-xs text-gray-600">
-              <p>• <strong>Cooperative Victory:</strong> All players must reach exit zones</p>
+              <p>• <strong>{gameMode === 'campaign' ? 'Campaign' : 'Cooperative'} Victory:</strong> All players must reach exit zones</p>
               <p>• <strong>Shared Resources:</strong> Both players share the same character pool</p>
               <p>• <strong>Rescue Mechanics:</strong> Either player can rescue captives</p>
               <p>• <strong>Team Health:</strong> Game over if both players are captured</p>
@@ -611,20 +748,38 @@ const GridGame: React.FC = () => {
               <p>• <strong>Party Management:</strong> Rescued characters join the team</p>
               <p>• <strong>Strategic Positioning:</strong> Players can't occupy same space</p>
               <p>• <strong>Collective Exit:</strong> All active characters must reach exit</p>
-              <p>• Press R to restart • ESC for hero selection • E for editor</p>
+              <p>• Press R to restart • ESC for menu • E for editor</p>
+              {gameMode === 'campaign' && (
+                <p>• <strong>Campaign Mode:</strong> Progress through levels to unlock new content</p>
+              )}
             </div>
           </div>
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <h3 className="font-medium text-gray-700 mb-2">Cooperative Features</h3>
+          <h3 className="font-medium text-gray-700 mb-2">
+            {gameMode === 'campaign' ? 'Campaign Features' : 'Cooperative Features'}
+          </h3>
           <div className="text-xs text-gray-600 space-y-1">
+            {gameMode === 'campaign' ? (
+              <>
+                <p>• <strong>Progressive Difficulty:</strong> Each level introduces new challenges</p>
+                <p>• <strong>Unlockable Content:</strong> Earn new heroes and weapons by completing levels</p>
+                <p>• <strong>Achievement System:</strong> Track your progress and earn rewards</p>
+                <p>• <strong>Score & Time Tracking:</strong> Compete for best scores and fastest times</p>
+                <p>• <strong>Persistent Progress:</strong> Your campaign progress is automatically saved</p>
+                <p>• <strong>Difficulty Scaling:</strong> Later levels have more enemies and shorter time limits</p>
+              </>
+            ) : (
+              <>
             <p>• <strong>Dual Control System:</strong> Independent movement and shooting for each player</p>
             <p>• <strong>Shared Victory Conditions:</strong> Success requires teamwork and coordination</p>
             <p>• <strong>Cooperative Rescue System:</strong> Either player can save captured teammates</p>
             <p>• <strong>Strategic Depth:</strong> Players must coordinate positioning and attacks</p>
             <p>• <strong>Collective Resource Management:</strong> Shared health, score, and party members</p>
             <p>• <strong>Real-time Cooperation:</strong> No turn-based delays, pure cooperative action</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -674,7 +829,7 @@ const GridGame: React.FC = () => {
 };
 
 // Import POWER_UP_TYPES for the component
-import { POWER_UP_TYPES, WEAPON_CONFIGS, HERO_TYPES } from '../config/GameConfig';
+import { POWER_UP_TYPES, WEAPON_CONFIGS, HERO_TYPES, GAME_CONFIG } from '../config/GameConfig';
 import { WeaponType } from '../types/GameTypes';
 
 export default GridGame;

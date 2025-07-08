@@ -171,6 +171,8 @@ export interface GameState {
     at30s: boolean;
     at10s: boolean;
   };
+  campaignMode: boolean;
+  currentCampaignLevel: number;
 }
 
 export interface CoopGameState extends GameState {
@@ -311,4 +313,57 @@ export interface LevelStatistics {
   isValid: boolean;
   validationErrors: string[];
   timeLimit: number;
+}
+
+export interface LevelCampaign {
+  id: string;
+  name: string;
+  description: string;
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
+  unlockConditions: {
+    requiredLevel: number;
+    requiredScore?: number;
+    requiredTime?: number;
+    mustRescueAll?: boolean;
+  };
+  rewards: {
+    unlockedHeroes?: string[];
+    unlockedWeapons?: WeaponType[];
+    bonusScore: number;
+    achievements?: string[];
+  };
+  levelData: LevelData;
+  difficultyScaling: {
+    enemyCount: number;
+    enemyHealthMultiplier: number;
+    timeLimit: number;
+    additionalObjectives?: string[];
+  };
+}
+
+export interface CampaignProgress {
+  currentLevel: number;
+  completedLevels: number[];
+  unlockedLevels: number[];
+  totalScore: number;
+  unlockedHeroes: string[];
+  unlockedWeapons: WeaponType[];
+  achievements: string[];
+  bestTimes: Record<number, number>;
+  bestScores: Record<number, number>;
+  lastPlayed: string;
+}
+
+export interface LevelCompletionResult {
+  levelId: number;
+  completed: boolean;
+  score: number;
+  timeElapsed: number;
+  allCaptivesRescued: boolean;
+  perfectRun: boolean;
+  newUnlocks: {
+    heroes: string[];
+    weapons: WeaponType[];
+    achievements: string[];
+  };
 }
