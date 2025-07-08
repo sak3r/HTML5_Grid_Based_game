@@ -62,6 +62,8 @@ export class GameRenderer {
     // Draw editor grid overlay if in editor mode
     if (gameState.editorMode) {
       this.drawEditorGrid();
+      this.drawEditorObjects(gameState);
+      this.drawObjectHighlights(gameState);
     }
 
     // Draw patrol radii
@@ -135,6 +137,182 @@ export class GameRenderer {
     }
 
     this.ctx.setLineDash([]);
+  }
+
+  private drawEditorObjects(gameState: GameState): void {
+    gameState.editorObjects.forEach(obj => {
+      switch (obj.type) {
+        case 'enemy':
+          this.drawEditorEnemy(obj);
+          break;
+        case 'wall':
+          this.drawEditorWall(obj);
+          break;
+        case 'collectible':
+          this.drawEditorCollectible(obj);
+          break;
+        case 'powerup':
+          this.drawEditorPowerUp(obj);
+          break;
+        case 'playerStart':
+          this.drawEditorPlayerStart(obj);
+          break;
+        case 'exit':
+          this.drawEditorExit(obj);
+          break;
+      }
+    });
+  }
+
+  private drawObjectHighlights(gameState: GameState): void {
+    // Highlight selected object
+    if (gameState.selectedObject) {
+      this.drawObjectHighlight(gameState.selectedObject.position, '#3b82f6', 3);
+    }
+    
+    // Highlight hovered object
+    if (gameState.hoveredObject && gameState.hoveredObject !== gameState.selectedObject) {
+      this.drawObjectHighlight(gameState.hoveredObject.position, '#10b981', 2);
+    }
+  }
+
+  private drawObjectHighlight(position: Position, color: string, lineWidth: number): void {
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+    
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = lineWidth;
+    this.ctx.setLineDash([5, 5]);
+    this.ctx.strokeRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
+    this.ctx.setLineDash([]);
+  }
+
+  private drawEditorEnemy(obj: EditorObject): void {
+    const pixelX = obj.position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = obj.position.y * GAME_CONFIG.GRID_SIZE;
+    
+    // Draw patrol radius
+    const centerX = pixelX + (GAME_CONFIG.GRID_SIZE / 2);
+    const centerY = pixelY + (GAME_CONFIG.GRID_SIZE / 2);
+    const radius = obj.config.patrolRadius * GAME_CONFIG.GRID_SIZE;
+    
+    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    this.ctx.fill();
+    
+    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+    
+    // Draw enemy
+    this.ctx.fillStyle = obj.config.color;
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+    
+    this.ctx.strokeStyle = obj.config.borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+  }
+
+  private drawEditorWall(obj: EditorObject): void {
+    const pixelX = obj.position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = obj.position.y * GAME_CONFIG.GRID_SIZE;
+    
+    this.ctx.fillStyle = COLORS.WALL;
+    this.ctx.fillRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
+    
+    this.ctx.strokeStyle = COLORS.WALL_BORDER;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
+  }
+
+  private drawEditorCollectible(obj: EditorObject): void {
+    const pixelX = obj.position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = obj.position.y * GAME_CONFIG.GRID_SIZE;
+    const centerX = pixelX + GAME_CONFIG.GRID_SIZE / 2;
+    const centerY = pixelY + GAME_CONFIG.GRID_SIZE / 2;
+    const size = 12;
+    
+    // Diamond shape
+    this.ctx.fillStyle = obj.config.heroType.color;
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX, centerY - size);
+    this.ctx.lineTo(centerX + size, centerY);
+    this.ctx.lineTo(centerX, centerY + size);
+    this.ctx.lineTo(centerX - size, centerY);
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    this.ctx.strokeStyle = obj.config.heroType.borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+  }
+
+  private drawEditorPowerUp(obj: EditorObject): void {
+    const pixelX = obj.position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = obj.position.y * GAME_CONFIG.GRID_SIZE;
+    const centerX = pixelX + GAME_CONFIG.GRID_SIZE / 2;
+    const centerY = pixelY + GAME_CONFIG.GRID_SIZE / 2;
+    const size = 10;
+    const powerUpConfig = POWER_UP_TYPES[obj.config.powerUpType];
+    
+    // Star shape
+    this.ctx.fillStyle = powerUpConfig.color;
+    this.ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const angle = (i * 4 * Math.PI) / 5;
+      const x = centerX + Math.cos(angle) * size;
+      const y = centerY + Math.sin(angle) * size;
+      if (i === 0) {
+        this.ctx.moveTo(x, y);
+      } else {
+        this.ctx.lineTo(x, y);
+      }
+    }
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+  }
+
+  private drawEditorPlayerStart(obj: EditorObject): void {
+    const pixelX = obj.position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = obj.position.y * GAME_CONFIG.GRID_SIZE;
+    
+    // Player start marker
+    this.ctx.fillStyle = '#3b82f6';
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+    
+    this.ctx.strokeStyle = '#1e40af';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+    
+    // Add "S" for start
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('S', pixelX + GAME_CONFIG.GRID_SIZE / 2, pixelY + GAME_CONFIG.GRID_SIZE / 2 + 6);
+  }
+
+  private drawEditorExit(obj: EditorObject): void {
+    const pixelX = obj.position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = obj.position.y * GAME_CONFIG.GRID_SIZE;
+    
+    // Exit zone marker
+    this.ctx.fillStyle = COLORS.EXIT_ZONE;
+    this.ctx.fillRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
+    
+    this.ctx.strokeStyle = COLORS.EXIT_ZONE_BORDER;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX, pixelY, GAME_CONFIG.GRID_SIZE, GAME_CONFIG.GRID_SIZE);
+    
+    // Add "E" for exit
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('E', pixelX + GAME_CONFIG.GRID_SIZE / 2, pixelY + GAME_CONFIG.GRID_SIZE / 2 + 6);
   }
 
   private drawPatrolRadius(enemy: Enemy): void {

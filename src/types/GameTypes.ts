@@ -56,9 +56,38 @@ export interface GameState {
   selectedHeroType: HeroType | null;
   editorMode: boolean;
   selectedTool: EditorTool;
+  editorObjects: EditorObject[];
+  selectedObject: EditorObject | null;
+  hoveredObject: EditorObject | null;
+  isDragging: boolean;
+  dragStart: Position | null;
 }
 
 export type EditorTool = 'enemy' | 'wall' | 'collectible' | 'playerStart' | 'exit' | 'powerup';
+
+export interface EditorObject {
+  id: string;
+  type: EditorTool;
+  position: Position;
+  config: any; // Flexible config object for different object types
+}
+
+export interface EnemyConfig {
+  patrolRadius: number;
+  color: string;
+  borderColor: string;
+  health: number;
+}
+
+export interface WallConfig {
+  isConnected: boolean;
+  connections: Position[];
+}
+
+export interface ExitZoneConfig {
+  width: number;
+  height: number;
+}
 
 export interface Wall {
   id: string;

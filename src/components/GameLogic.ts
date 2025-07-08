@@ -53,6 +53,11 @@ export class GameLogic {
       selectedHeroType: selectedHero,
       editorMode: false,
       selectedTool: 'enemy',
+      editorObjects: [],
+      selectedObject: null,
+      hoveredObject: null,
+      isDragging: false,
+      dragStart: null,
     };
   }
 
@@ -65,6 +70,11 @@ export class GameLogic {
       enemies: [],
       collectibleHeroes: [],
       powerUps: [],
+      editorObjects: [],
+      selectedObject: null,
+      hoveredObject: null,
+      isDragging: false,
+      dragStart: null,
     };
   }
 
@@ -433,92 +443,280 @@ export class GameLogic {
   }
 
   public toggleEditorMode(gameState: GameState): GameState {
-    return {
+    const newState = {
       ...gameState,
       editorMode: !gameState.editorMode,
       gameStatus: gameState.editorMode ? 'playing' : 'paused',
+      selectedObject: null,
+      hoveredObject: null,
+      isDragging: false,
+      dragStart: null,
     };
+    
+    // When exiting editor mode, apply editor objects to game state
+    if (gameState.editorMode) {
+      return this.applyEditorObjectsToGameState(newState);
+    }
+    
+    return newState;
   }
 
   public setSelectedTool(gameState: GameState, tool: EditorTool): GameState {
     return {
       ...gameState,
       selectedTool: tool,
+      selectedObject: null,
     };
   }
 
-  public handleEditorClick(gameState: GameState, gridPosition: Position): GameState {
+  public handleEditorClick(gameState: GameState, gridPosition: Position, isRightClick: boolean = false): GameState {
     if (!gameState.editorMode) return gameState;
 
     const newState = { ...gameState };
+    
+    // Check if clicking on existing object
+    const clickedObject = gameState.editorObjects.find(obj => 
+      obj.position.x === gridPosition.x && obj.position.y === gridPosition.y
+    );
+    
+    if (isRightClick) {
+      if (clickedObject) {
+        // Right-click on object: configure or delete
+        if (clickedObject.type === 'enemy') {
+          return this.configureEnemyObject(newState, clickedObject);
+        } else {
+          // Delete object
+          return this.deleteEditorObject(newState, clickedObject.id);
+        }
+      }
+      return newState;
+    }
+    
+    if (clickedObject) {
+      // Left-click on existing object: select it
+      newState.selectedObject = clickedObject;
+      return newState;
+    }
+    
+    // Place new object
+    return this.placeEditorObject(newState, gridPosition);
+  }
+  
+  private placeEditorObject(gameState: GameState, position: Position): GameState {
+    const newState = { ...gameState };
+    const objectId = generateId();
 
     switch (gameState.selectedTool) {
       case 'enemy':
-        // Add enemy at position
-        const newEnemy = {
-          id: generateId(),
-          position: { ...gridPosition },
-          originalPosition: { ...gridPosition },
-          patrolRadius: 3,
-          color: '#ef4444',
-          borderColor: '#dc2626',
-          health: GAME_CONFIG.ENEMY_MAX_HEALTH,
-          maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
-          isChasing: false,
-          lastMoveTime: 0,
-          lastShootTime: 0,
-          canShoot: true,
-          isHit: false,
-          hitTime: 0,
-          isDestroyed: false,
-          destroyTime: 0,
+        const enemyObject: EditorObject = {
+          id: objectId,
+          type: 'enemy',
+          position: { ...position },
+          config: {
+            patrolRadius: 3,
+            color: '#ef4444',
+            borderColor: '#dc2626',
+            health: GAME_CONFIG.ENEMY_MAX_HEALTH,
+          } as EnemyConfig,
         };
-        newState.enemies = [...gameState.enemies, newEnemy];
+        newState.editorObjects = [...gameState.editorObjects, enemyObject];
+        break;
+
+      case 'wall':
+        const wallObject: EditorObject = {
+          id: objectId,
+          type: 'wall',
+          position: { ...position },
+          config: {
+            isConnected: false,
+            connections: [],
+          } as WallConfig,
+        };
+        newState.editorObjects = [...gameState.editorObjects, wallObject];
         break;
 
       case 'collectible':
-        // Add collectible hero at position
-        const newCollectible = {
-          id: generateId(),
-          position: { ...gridPosition },
-          heroType: HERO_TYPES[Math.floor(Math.random() * HERO_TYPES.length)],
-          collected: false,
+        const collectibleObject: EditorObject = {
+          id: objectId,
+          type: 'collectible',
+          position: { ...position },
+          config: {
+            heroType: HERO_TYPES[Math.floor(Math.random() * HERO_TYPES.length)],
+          },
         };
-        newState.collectibleHeroes = [...gameState.collectibleHeroes, newCollectible];
+        newState.editorObjects = [...gameState.editorObjects, collectibleObject];
         break;
 
       case 'powerup':
-        // Add power-up at position
         const powerUpTypes = ['speedBoost', 'rapidFire', 'shield'] as const;
         const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-        const newPowerUp = {
-          id: generateId(),
-          position: { ...gridPosition },
-          type: randomType,
-          collected: false,
+        const powerUpObject: EditorObject = {
+          id: objectId,
+          type: 'powerup',
+          position: { ...position },
+          config: {
+            powerUpType: randomType,
+          },
         };
-        newState.powerUps = [...gameState.powerUps, newPowerUp];
+        newState.editorObjects = [...gameState.editorObjects, powerUpObject];
         break;
 
       case 'playerStart':
-        // Move player start position
-        newState.player = {
-          ...newState.player,
-          position: { ...gridPosition },
+        // Remove existing player start
+        newState.editorObjects = gameState.editorObjects.filter(obj => obj.type !== 'playerStart');
+        
+        const playerStartObject: EditorObject = {
+          id: objectId,
+          type: 'playerStart',
+          position: { ...position },
+          config: {},
         };
+        newState.editorObjects = [...newState.editorObjects, playerStartObject];
+        break;
+
+      case 'exit':
+        const exitObject: EditorObject = {
+          id: objectId,
+          type: 'exit',
+          position: { ...position },
+          config: {
+            width: 1,
+            height: 1,
+          } as ExitZoneConfig,
+        };
+        newState.editorObjects = [...gameState.editorObjects, exitObject];
         break;
 
       default:
         break;
     }
+    
+    return newState;
+  }
+  
+  private deleteEditorObject(gameState: GameState, objectId: string): GameState {
+    return {
+      ...gameState,
+      editorObjects: gameState.editorObjects.filter(obj => obj.id !== objectId),
+      selectedObject: gameState.selectedObject?.id === objectId ? null : gameState.selectedObject,
+    };
+  }
+  
+  private configureEnemyObject(gameState: GameState, enemyObject: EditorObject): GameState {
+    const newRadius = prompt('Enter patrol radius (1-8):', enemyObject.config.patrolRadius.toString());
+    if (newRadius && !isNaN(parseInt(newRadius))) {
+      const radius = Math.max(1, Math.min(8, parseInt(newRadius)));
+      
+      const updatedObjects = gameState.editorObjects.map(obj => 
+        obj.id === enemyObject.id 
+          ? { ...obj, config: { ...obj.config, patrolRadius: radius } }
+          : obj
+      );
+      
+      return {
+        ...gameState,
+        editorObjects: updatedObjects,
+      };
+    }
+    
+    return gameState;
+  }
+  
+  public setHoveredObject(gameState: GameState, position: Position | null): GameState {
+    if (!position) {
+      return { ...gameState, hoveredObject: null };
+    }
+    
+    const hoveredObject = gameState.editorObjects.find(obj => 
+      obj.position.x === position.x && obj.position.y === position.y
+    );
+    
+    return {
+      ...gameState,
+      hoveredObject: hoveredObject || null,
+    };
+  }
+  
+  public deleteSelectedObject(gameState: GameState): GameState {
+    if (!gameState.selectedObject) return gameState;
+    
+    return this.deleteEditorObject(gameState, gameState.selectedObject.id);
+  }
+  
+  private applyEditorObjectsToGameState(gameState: GameState): GameState {
+    const newState = { ...gameState };
+    
+    // Clear existing objects
+    newState.enemies = [];
+    newState.collectibleHeroes = [];
+    newState.powerUps = [];
+    
+    // Apply editor objects to game state
+    gameState.editorObjects.forEach(obj => {
+      switch (obj.type) {
+        case 'enemy':
+          const enemy = {
+            id: obj.id,
+            position: { ...obj.position },
+            originalPosition: { ...obj.position },
+            patrolRadius: obj.config.patrolRadius,
+            color: obj.config.color,
+            borderColor: obj.config.borderColor,
+            health: obj.config.health,
+            maxHealth: obj.config.health,
+            isChasing: false,
+            lastMoveTime: 0,
+            lastShootTime: 0,
+            canShoot: true,
+            isHit: false,
+            hitTime: 0,
+            isDestroyed: false,
+            destroyTime: 0,
+          };
+          newState.enemies.push(enemy);
+          break;
+          
+        case 'collectible':
+          const collectible = {
+            id: obj.id,
+            position: { ...obj.position },
+            heroType: obj.config.heroType,
+            collected: false,
+          };
+          newState.collectibleHeroes.push(collectible);
+          break;
+          
+        case 'powerup':
+          const powerUp = {
+            id: obj.id,
+            position: { ...obj.position },
+            type: obj.config.powerUpType,
+            collected: false,
+          };
+          newState.powerUps.push(powerUp);
+          break;
+          
+        case 'playerStart':
+          newState.player = {
+            ...newState.player,
+            position: { ...obj.position },
+          };
+          break;
+      }
+    });
+    
     return newState;
   }
 
   public testLevel(gameState: GameState): GameState {
-    return {
+    const newState = {
       ...gameState,
       editorMode: false,
       gameStatus: 'playing',
+      selectedObject: null,
+      hoveredObject: null,
     };
+    
+    return this.applyEditorObjectsToGameState(newState);
   }
 }
