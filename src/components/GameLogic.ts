@@ -745,23 +745,33 @@ export class GameLogic {
           stats.powerUpCount++;
           break;
     // Validation rules
+    if (stats.exitZoneCount === 0) {
+    if (stats.enemyCount === 0 && stats.collectibleCount === 0) {
+        case 'exit':
+          stats.exitZoneCount++;
+          stats.exitZoneCount++;
+          break;
+        case 'playerStart':
+          stats.hasPlayerStart = true;
+          break;
+      }
+    });
+
+    // Validation rules
     if (!stats.hasPlayerStart) {
       stats.validationErrors.push('Level must have at least one player start position');
       stats.isValid = false;
     }
-        case 'wall':
     if (stats.exitZoneCount === 0) {
       stats.validationErrors.push('Level must have at least one exit zone');
       stats.isValid = false;
     }
-          stats.wallCount++;
     if (stats.enemyCount === 0 && stats.collectibleCount === 0) {
       stats.validationErrors.push('Level should have at least one enemy or collectible for gameplay');
     }
-          break;
     return stats;
   }
-        case 'exit':
+
   public exportLevelData(gameState: GameState, metadata: LevelMetadata): LevelData {
     const levelData: LevelData = {
       playerStart: gameState.player.position,
@@ -776,7 +786,7 @@ export class GameLogic {
       },
       editorObjects: gameState.editorObjects,
     };
-          stats.exitZoneCount++;
+
     // Convert editor objects to legacy format for compatibility
     gameState.editorObjects.forEach(obj => {
       switch (obj.type) {
@@ -833,10 +843,10 @@ export class GameLogic {
           break;
       }
     });
-          break;
+
     return levelData;
   }
-        case 'playerStart':
+
   public importLevelData(gameState: GameState, levelData: LevelData): GameState {
     const newState = { ...gameState };
     
@@ -940,7 +950,7 @@ export class GameLogic {
     
     return newState;
   }
-          stats.hasPlayerStart = true;
+
   public getSavedLevels(): string[] {
     const levels: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -951,7 +961,7 @@ export class GameLogic {
     }
     return levels.sort();
   }
-          break;
+
   public saveLevel(gameState: GameState, levelName: string, metadata: Partial<LevelMetadata>): boolean {
     try {
       const fullMetadata: LevelMetadata = {
@@ -973,7 +983,7 @@ export class GameLogic {
       return false;
     }
   }
-      }
+
   public loadLevel(levelName: string): LevelData | null {
     try {
       const savedLevel = localStorage.getItem(`level_${levelName}`);
@@ -985,7 +995,7 @@ export class GameLogic {
     }
     return null;
   }
-    });
+
   public deleteLevel(levelName: string): boolean {
     try {
       localStorage.removeItem(`level_${levelName}`);
