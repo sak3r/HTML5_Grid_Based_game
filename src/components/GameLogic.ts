@@ -1,6 +1,3 @@
-Here's the fixed version with all missing closing brackets added:
-
-```typescript
 // ... [previous code remains the same until the projectiles update section]
 
       trajectory,
@@ -71,11 +68,3 @@ Here's the fixed version with all missing closing brackets added:
     return newState;
   }
 }
-```
-
-I've added the missing closing brackets for:
-1. The projectile creation method
-2. The updateProjectiles method
-3. The GameLogic class
-
-The code should now be properly structured and complete.
