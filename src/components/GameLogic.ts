@@ -719,4 +719,280 @@ export class GameLogic {
     
     return this.applyEditorObjectsToGameState(newState);
   }
+
+  public validateLevel(gameState: GameState): LevelStatistics {
+    const stats: LevelStatistics = {
+      enemyCount: 0,
+      collectibleCount: 0,
+      powerUpCount: 0,
+      wallCount: 0,
+      exitZoneCount: 0,
+      hasPlayerStart: false,
+      isValid: true,
+      validationErrors: [],
+    };
+
+    // Count objects and check for required elements
+    gameState.editorObjects.forEach(obj => {
+      switch (obj.type) {
+        case 'enemy':
+          stats.enemyCount++;
+          break;
+        case 'collectible':
+          stats.collectibleCount++;
+          break;
+        case 'powerup':
+          stats.powerUpCount++;
+          break;
+    // Validation rules
+    if (!stats.hasPlayerStart) {
+      stats.validationErrors.push('Level must have at least one player start position');
+      stats.isValid = false;
+    }
+        case 'wall':
+    if (stats.exitZoneCount === 0) {
+      stats.validationErrors.push('Level must have at least one exit zone');
+      stats.isValid = false;
+    }
+          stats.wallCount++;
+    if (stats.enemyCount === 0 && stats.collectibleCount === 0) {
+      stats.validationErrors.push('Level should have at least one enemy or collectible for gameplay');
+    }
+          break;
+    return stats;
+  }
+        case 'exit':
+  public exportLevelData(gameState: GameState, metadata: LevelMetadata): LevelData {
+    const levelData: LevelData = {
+      playerStart: gameState.player.position,
+      enemies: [],
+      walls: [],
+      collectibleHeroes: [],
+      powerUps: [],
+      exitZones: [],
+      metadata: {
+        ...metadata,
+        modifiedAt: new Date().toISOString(),
+      },
+      editorObjects: gameState.editorObjects,
+    };
+          stats.exitZoneCount++;
+    // Convert editor objects to legacy format for compatibility
+    gameState.editorObjects.forEach(obj => {
+      switch (obj.type) {
+        case 'enemy':
+          levelData.enemies.push({
+            id: obj.id,
+            position: obj.position,
+            originalPosition: obj.position,
+            patrolRadius: obj.config.patrolRadius,
+            color: obj.config.color,
+            borderColor: obj.config.borderColor,
+            health: obj.config.health,
+            maxHealth: obj.config.health,
+            isChasing: false,
+            lastMoveTime: 0,
+            lastShootTime: 0,
+            canShoot: true,
+            isHit: false,
+            hitTime: 0,
+            isDestroyed: false,
+            destroyTime: 0,
+          });
+          break;
+        case 'wall':
+          levelData.walls.push({
+            id: obj.id,
+            position: obj.position,
+          });
+          break;
+        case 'collectible':
+          levelData.collectibleHeroes.push({
+            id: obj.id,
+            position: obj.position,
+            heroType: obj.config.heroType,
+            collected: false,
+          });
+          break;
+        case 'powerup':
+          levelData.powerUps.push({
+            id: obj.id,
+            position: obj.position,
+            type: obj.config.powerUpType,
+            collected: false,
+          });
+          break;
+        case 'exit':
+          levelData.exitZones.push({
+            id: obj.id,
+            position: obj.position,
+          });
+          break;
+        case 'playerStart':
+          levelData.playerStart = obj.position;
+          break;
+      }
+    });
+          break;
+    return levelData;
+  }
+        case 'playerStart':
+  public importLevelData(gameState: GameState, levelData: LevelData): GameState {
+    const newState = { ...gameState };
+    
+    // Clear existing editor objects
+    newState.editorObjects = [];
+    
+    // Import from editorObjects if available (new format)
+    if (levelData.editorObjects && levelData.editorObjects.length > 0) {
+      newState.editorObjects = [...levelData.editorObjects];
+    } else {
+      // Convert from legacy format
+      const editorObjects: EditorObject[] = [];
+      
+      // Convert player start
+      if (levelData.playerStart) {
+        editorObjects.push({
+          id: generateId(),
+          type: 'playerStart',
+          position: levelData.playerStart,
+          config: {},
+        });
+      }
+      
+      // Convert enemies
+      levelData.enemies.forEach(enemy => {
+        editorObjects.push({
+          id: enemy.id,
+          type: 'enemy',
+          position: enemy.position,
+          config: {
+            patrolRadius: enemy.patrolRadius,
+            color: enemy.color,
+            borderColor: enemy.borderColor,
+            health: enemy.health,
+          },
+        });
+      });
+      
+      // Convert walls
+      levelData.walls.forEach(wall => {
+        editorObjects.push({
+          id: wall.id,
+          type: 'wall',
+          position: wall.position,
+          config: {
+            isConnected: false,
+            connections: [],
+          },
+        });
+      });
+      
+      // Convert collectibles
+      levelData.collectibleHeroes.forEach(collectible => {
+        editorObjects.push({
+          id: collectible.id,
+          type: 'collectible',
+          position: collectible.position,
+          config: {
+            heroType: collectible.heroType,
+          },
+        });
+      });
+      
+      // Convert power-ups
+      levelData.powerUps.forEach(powerUp => {
+        editorObjects.push({
+          id: powerUp.id,
+          type: 'powerup',
+          position: powerUp.position,
+          config: {
+            powerUpType: powerUp.type,
+          },
+        });
+      });
+      
+      // Convert exit zones
+      levelData.exitZones.forEach(exitZone => {
+        editorObjects.push({
+          id: exitZone.id,
+          type: 'exit',
+          position: exitZone.position,
+          config: {
+            width: 1,
+            height: 1,
+          },
+        });
+      });
+      
+      newState.editorObjects = editorObjects;
+    }
+    
+    // Update player position
+    newState.player = {
+      ...newState.player,
+      position: levelData.playerStart,
+    };
+    
+    // Clear selection
+    newState.selectedObject = null;
+    newState.hoveredObject = null;
+    
+    return newState;
+  }
+          stats.hasPlayerStart = true;
+  public getSavedLevels(): string[] {
+    const levels: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('level_')) {
+        levels.push(key.replace('level_', ''));
+      }
+    }
+    return levels.sort();
+  }
+          break;
+  public saveLevel(gameState: GameState, levelName: string, metadata: Partial<LevelMetadata>): boolean {
+    try {
+      const fullMetadata: LevelMetadata = {
+        name: levelName,
+        author: metadata.author || 'Unknown',
+        description: metadata.description || '',
+        version: '1.0.0',
+        createdAt: metadata.createdAt || new Date().toISOString(),
+        modifiedAt: new Date().toISOString(),
+        difficulty: metadata.difficulty || 'medium',
+        tags: metadata.tags || [],
+      };
+      
+      const levelData = this.exportLevelData(gameState, fullMetadata);
+      localStorage.setItem(`level_${levelName}`, JSON.stringify(levelData));
+      return true;
+    } catch (error) {
+      console.error('Failed to save level:', error);
+      return false;
+    }
+  }
+      }
+  public loadLevel(levelName: string): LevelData | null {
+    try {
+      const savedLevel = localStorage.getItem(`level_${levelName}`);
+      if (savedLevel) {
+        return JSON.parse(savedLevel);
+      }
+    } catch (error) {
+      console.error('Failed to load level:', error);
+    }
+    return null;
+  }
+    });
+  public deleteLevel(levelName: string): boolean {
+    try {
+      localStorage.removeItem(`level_${levelName}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete level:', error);
+      return false;
+    }
+  }
 }

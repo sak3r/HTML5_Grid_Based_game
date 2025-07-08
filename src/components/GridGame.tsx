@@ -70,6 +70,26 @@ const GridGame: React.FC = () => {
   }, [gameState]);
 
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!gameState) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    const gridX = Math.floor(x / GAME_CONFIG.GRID_SIZE);
+    const gridY = Math.floor(y / GAME_CONFIG.GRID_SIZE);
+    
+    if (gridX >= 0 && gridX < GRID_COLS && gridY >= 0 && gridY < GRID_ROWS) {
+      const isRightClick = event.button === 2;
+      const newState = gameLogic.current.handleEditorClick(gameState, { x: gridX, y: gridY }, isRightClick);
+      setGameState(newState);
+    }
+  }, [gameState]);
+
+  const handleCanvasMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!gameState?.editorMode) return;
 
     const canvas = canvasRef.current;
@@ -83,9 +103,16 @@ const GridGame: React.FC = () => {
     const gridY = Math.floor(y / GAME_CONFIG.GRID_SIZE);
     
     if (gridX >= 0 && gridX < GRID_COLS && gridY >= 0 && gridY < GRID_ROWS) {
-      const newState = gameLogic.current.handleEditorClick(gameState, { x: gridX, y: gridY });
+      const newState = gameLogic.current.setHoveredObject(gameState, { x: gridX, y: gridY });
       setGameState(newState);
     }
+  }, [gameState]);
+
+  const handleCanvasMouseLeave = useCallback(() => {
+    if (!gameState?.editorMode) return;
+    
+    const newState = gameLogic.current.setHoveredObject(gameState, null);
+    setGameState(newState);
   }, [gameState]);
 
   const handleTestLevel = useCallback(() => {
@@ -98,11 +125,7 @@ const GridGame: React.FC = () => {
     if (gameState) {
       const levelData = {
         playerStart: gameState.player.position,
-        enemies: gameState.enemies,
-        walls: [],
-        collectibleHeroes: gameState.collectibleHeroes,
-        powerUps: gameState.powerUps,
-        exitZones: [],
+        editorObjects: gameState.editorObjects,
       };
       
       const levelName = prompt('Enter level name:');
@@ -124,10 +147,9 @@ const GridGame: React.FC = () => {
           if (gameState) {
             setGameState({
               ...gameState,
-              player: { ...gameState.player, position: levelData.playerStart },
-              enemies: levelData.enemies,
-              collectibleHeroes: levelData.collectibleHeroes,
-              powerUps: levelData.powerUps,
+              editorObjects: levelData.editorObjects || [],
+              selectedObject: null,
+              hoveredObject: null,
             });
             alert('Level loaded successfully!');
           }
@@ -209,6 +231,12 @@ const GridGame: React.FC = () => {
       if (key === 'KeyE') {
         event.preventDefault();
         handleEditorToggle();
+      }
+      
+      // Delete selected object in editor
+      if (key === 'Delete' && gameState?.editorMode && gameState.selectedObject) {
+        event.preventDefault();
+        setGameState(gameLogic.current.deleteSelectedObject(gameState));
       }
       
       // Back to hero selection
@@ -393,6 +421,9 @@ const GridGame: React.FC = () => {
           className="border-2 border-gray-300 rounded-lg shadow-lg bg-white"
           style={{ imageRendering: 'pixelated' }}
           onClick={handleCanvasClick}
+          onContextMenu={(e) => e.preventDefault()}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
         />
 
         <div className="absolute -bottom-12 left-0 right-0 text-center">
@@ -403,7 +434,12 @@ const GridGame: React.FC = () => {
             <span>•</span>
             <span>Projectiles: {gameState.projectiles.length}</span>
             <span>•</span>
-            <span>Collectibles: {gameState.collectibleHeroes.filter(h => !h.collected).length + gameState.powerUps.filter(p => !p.collected).length}</span>
+            <span>
+              {gameState.editorMode 
+                ? `Objects: ${gameState.editorObjects.length}` 
+                : `Collectibles: ${gameState.collectibleHeroes.filter(h => !h.collected).length + gameState.powerUps.filter(p => !p.collected).length}`
+              }
+            </span>
           </div>
         </div>
       </div>

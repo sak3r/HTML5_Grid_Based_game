@@ -155,4 +155,28 @@ export interface LevelData {
   collectibleHeroes: CollectibleHero[];
   powerUps: PowerUp[];
   exitZones: ExitZone[];
+  metadata: LevelMetadata;
+  editorObjects: EditorObject[];
+}
+
+export interface LevelMetadata {
+  name: string;
+  author: string;
+  description: string;
+  version: string;
+  createdAt: string;
+  modifiedAt: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  tags: string[];
+}
+
+export interface LevelStatistics {
+  enemyCount: number;
+  collectibleCount: number;
+  powerUpCount: number;
+  wallCount: number;
+  exitZoneCount: number;
+  hasPlayerStart: boolean;
+  isValid: boolean;
+  validationErrors: string[];
 }
