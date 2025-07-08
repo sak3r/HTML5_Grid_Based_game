@@ -1,3 +1,4 @@
+import { GRID_COLS, GRID_ROWS } from '../config/GameConfig';
 import { Position, Enemy, Player, Projectile } from '../types/GameTypes';
 
 export const calculateDistance = (pos1: Position, pos2: Position): number => {
