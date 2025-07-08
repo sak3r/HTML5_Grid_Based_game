@@ -1,0 +1,232 @@
+import { GameState, Position, Projectile, Enemy } from '../types/GameTypes';
+import { GAME_CONFIG, COLORS, ENEMY_CONFIGS } from '../config/GameConfig';
+import { 
+  calculateDistance, 
+  isValidPosition, 
+  moveTowardsTarget, 
+  isInLineOfSight, 
+  getDirectionToTarget, 
+  checkCollision, 
+  generateId 
+} from '../utils/GameUtils';
+
+export class GameLogic {
+  public createInitialGameState(): GameState {
+    return {
+      player: {
+        position: { x: 12, y: 17 },
+        lastMoveTime: 0,
+        lastShootTime: 0,
+      },
+      enemies: ENEMY_CONFIGS.map(config => ({
+        ...config,
+        originalPosition: { ...config.position },
+        isChasing: false,
+        lastMoveTime: 0,
+        lastShootTime: 0,
+        canShoot: true,
+      })),
+      projectiles: [],
+      gameStatus: 'playing',
+      score: 0,
+      level: 1,
+    };
+  }
+
+  public updateGame(gameState: GameState, pressedKeys: Set<string>, deltaTime: number): GameState {
+    if (gameState.gameStatus !== 'playing') {
+      return gameState;
+    }
+
+    const currentTime = Date.now();
+    let newState = { ...gameState };
+
+    // Update player
+    newState = this.updatePlayer(newState, pressedKeys, currentTime);
+
+    // Update enemies
+    newState = this.updateEnemies(newState, currentTime);
+
+    // Update projectiles
+    newState = this.updateProjectiles(newState, currentTime);
+
+    // Check collisions
+    newState = this.checkCollisions(newState);
+
+    // Check win condition (player reached top)
+    if (newState.player.position.y === -1) {
+      newState.gameStatus = 'victory';
+    }
+
+    return newState;
+  }
+
+  private updatePlayer(gameState: GameState, pressedKeys: Set<string>, currentTime: number): GameState {
+    const newState = { ...gameState };
+    
+    // Handle movement
+    let deltaX = 0;
+    let deltaY = 0;
+    
+    if (pressedKeys.has('KeyW') || pressedKeys.has('ArrowUp')) deltaY -= 1;
+    if (pressedKeys.has('KeyS') || pressedKeys.has('ArrowDown')) deltaY += 1;
+    if (pressedKeys.has('KeyA') || pressedKeys.has('ArrowLeft')) deltaX -= 1;
+    if (pressedKeys.has('KeyD') || pressedKeys.has('ArrowRight')) deltaX += 1;
+
+    // Apply movement
+    if (currentTime - gameState.player.lastMoveTime >= GAME_CONFIG.PLAYER_MOVE_SPEED && (deltaX !== 0 || deltaY !== 0)) {
+      const newX = gameState.player.position.x + Math.sign(deltaX);
+      const newY = gameState.player.position.y + Math.sign(deltaY);
+      
+      if (isValidPosition(newX, newY, true)) {
+        newState.player = {
+          ...newState.player,
+          position: { x: newX, y: newY },
+          lastMoveTime: currentTime,
+        };
+      }
+    }
+
+    return newState;
+  }
+
+  private updateEnemies(gameState: GameState, currentTime: number): GameState {
+    const newState = { ...gameState };
+    
+    newState.enemies = gameState.enemies.map(enemy => {
+      const distanceToPlayer = calculateDistance(enemy.originalPosition, gameState.player.position);
+      const shouldChase = distanceToPlayer <= enemy.patrolRadius;
+      
+      let newEnemy = { ...enemy };
+      
+      // Update position
+      if (currentTime - enemy.lastMoveTime >= GAME_CONFIG.ENEMY_MOVE_SPEED) {
+        let newPosition = enemy.position;
+        
+        if (shouldChase) {
+          newPosition = moveTowardsTarget(enemy.position, gameState.player.position);
+        } else if (enemy.isChasing) {
+          if (enemy.position.x !== enemy.originalPosition.x || enemy.position.y !== enemy.originalPosition.y) {
+            newPosition = moveTowardsTarget(enemy.position, enemy.originalPosition);
+          }
+        }
+        
+        const moved = newPosition.x !== enemy.position.x || newPosition.y !== enemy.position.y;
+        
+        newEnemy = {
+          ...newEnemy,
+          position: newPosition,
+          isChasing: shouldChase,
+          lastMoveTime: moved ? currentTime : enemy.lastMoveTime,
+        };
+      }
+      
+      // Handle shooting
+      if (shouldChase && 
+          isInLineOfSight(newEnemy.position, gameState.player.position) &&
+          currentTime - enemy.lastShootTime >= GAME_CONFIG.SHOOT_COOLDOWN) {
+        
+        const direction = getDirectionToTarget(newEnemy.position, gameState.player.position);
+        const projectile: Projectile = {
+          id: generateId(),
+          position: { ...newEnemy.position },
+          direction,
+          speed: GAME_CONFIG.PROJECTILE_SPEED,
+          ownerId: enemy.id,
+          color: COLORS.ENEMY_PROJECTILE,
+          lastMoveTime: currentTime,
+        };
+        
+        newState.projectiles.push(projectile);
+        newEnemy.lastShootTime = currentTime;
+      }
+      
+      return newEnemy;
+    });
+    
+    return newState;
+  }
+
+  private updateProjectiles(gameState: GameState, currentTime: number): GameState {
+    const newState = { ...gameState };
+    
+    newState.projectiles = gameState.projectiles
+      .map(projectile => {
+        if (currentTime - projectile.lastMoveTime >= projectile.speed) {
+          const newPosition = {
+            x: projectile.position.x + projectile.direction.x,
+            y: projectile.position.y + projectile.direction.y,
+          };
+          
+          return {
+            ...projectile,
+            position: newPosition,
+            lastMoveTime: currentTime,
+          };
+        }
+        return projectile;
+      })
+      .filter(projectile => isValidPosition(projectile.position.x, projectile.position.y));
+    
+    return newState;
+  }
+
+  private checkCollisions(gameState: GameState): GameState {
+    const newState = { ...gameState };
+    
+    // Check projectile-player collisions
+    const playerHit = gameState.projectiles.some(projectile => 
+      projectile.ownerId !== 'player' && 
+      checkCollision(projectile.position, gameState.player.position)
+    );
+    
+    if (playerHit) {
+      newState.gameStatus = 'gameOver';
+      return newState;
+    }
+    
+    // Check projectile-enemy collisions
+    newState.projectiles = gameState.projectiles.filter(projectile => {
+      const hitEnemy = gameState.enemies.some(enemy => 
+        projectile.ownerId === 'player' && 
+        checkCollision(projectile.position, enemy.position)
+      );
+      return !hitEnemy;
+    });
+    
+    // Remove hit enemies
+    newState.enemies = gameState.enemies.filter(enemy => {
+      const hit = gameState.projectiles.some(projectile => 
+        projectile.ownerId === 'player' && 
+        checkCollision(projectile.position, enemy.position)
+      );
+      if (hit) {
+        newState.score += 100;
+      }
+      return !hit;
+    });
+    
+    // Check player-enemy collisions
+    const enemyCollision = gameState.enemies.some(enemy => 
+      checkCollision(enemy.position, gameState.player.position)
+    );
+    
+    if (enemyCollision) {
+      newState.gameStatus = 'gameOver';
+    }
+    
+    return newState;
+  }
+
+  public createProjectile(position: Position, direction: Position, ownerId: string): Projectile {
+    return {
+      id: generateId(),
+      position: { ...position },
+      direction,
+      speed: GAME_CONFIG.PROJECTILE_SPEED,
+      ownerId,
+      color: ownerId === 'player' ? COLORS.PLAYER_PROJECTILE : COLORS.ENEMY_PROJECTILE,
+      lastMoveTime: Date.now(),
+    };
+  }
+}
