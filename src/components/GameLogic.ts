@@ -1628,4 +1628,28 @@ export class GameLogic {
   public shouldPulse(timeRemaining: number): boolean {
     return timeRemaining <= GAME_CONFIG.TIMER_CRITICAL_THRESHOLD;
   }
+  
+  private calculateParabolicTrajectory(start: Position, direction: Position, range: number): Position[] {
+    const trajectory: Position[] = [];
+    const endX = start.x + (direction.x * range);
+    const endY = start.y + (direction.y * range);
+    
+    // Calculate arc points
+    const steps = range * 2; // More steps for smoother arc
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = Math.round(start.x + (endX - start.x) * t);
+      
+      // Parabolic curve - highest point at middle of trajectory
+      const arcHeight = 3; // Maximum height of arc
+      const parabolicY = start.y + (endY - start.y) * t - (arcHeight * 4 * t * (1 - t));
+      const y = Math.round(parabolicY);
+      
+      if (x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS) {
+        trajectory.push({ x, y });
+      }
+    }
+    
+    return trajectory;
+  }
 }

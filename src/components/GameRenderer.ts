@@ -650,6 +650,21 @@ export class GameRenderer {
       case 'flamethrower':
         this.drawFlameProjectile(pixelX, pixelY, projectile.color);
         break;
+      case 'sniper_rifle':
+        this.drawSniperProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'throwing_star':
+        this.drawThrowingStarProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'magic_bolt':
+        this.drawMagicBoltProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'axe':
+        this.drawAxeProjectile(pixelX, pixelY, projectile.color);
+        break;
+      case 'bow':
+        this.drawBowProjectile(pixelX, pixelY, projectile.color);
+        break;
       default:
         this.drawRifleProjectile(pixelX, pixelY, projectile.color);
     }

@@ -144,8 +144,8 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ onHeroSelect }) => {
 
       <div className="mt-12 text-center">
         <p className="text-gray-400 text-sm max-w-2xl mx-auto">
-          💡 <strong>Tip:</strong> Warriors are great for beginners, Scouts excel at hit-and-run tactics, 
-          and Tanks can absorb more damage but move slower. Choose wisely!
+          💡 <strong>Tip:</strong> Each hero has unique weapons and abilities. Rangers excel at long-range combat, 
+          Ninjas are fast but fragile, Mages can shoot through walls, Vikings dominate in melee, and Archers can shoot over obstacles!
         </p>
       </div>
     </div>
