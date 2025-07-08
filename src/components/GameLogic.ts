@@ -744,11 +744,10 @@ export class GameLogic {
         case 'powerup':
           stats.powerUpCount++;
           break;
-    // Validation rules
-    if (stats.exitZoneCount === 0) {
-    if (stats.enemyCount === 0 && stats.collectibleCount === 0) {
+        case 'wall':
+          stats.wallCount++;
+          break;
         case 'exit':
-          stats.exitZoneCount++;
           stats.exitZoneCount++;
           break;
         case 'playerStart':
@@ -762,6 +761,10 @@ export class GameLogic {
       stats.validationErrors.push('Level must have at least one player start position');
       stats.isValid = false;
     }
+    if (!stats.hasPlayerStart) {
+      stats.validationErrors.push('Level must have at least one player start position');
+      stats.isValid = false;
+    }
     if (stats.exitZoneCount === 0) {
       stats.validationErrors.push('Level must have at least one exit zone');
       stats.isValid = false;
@@ -769,6 +772,7 @@ export class GameLogic {
     if (stats.enemyCount === 0 && stats.collectibleCount === 0) {
       stats.validationErrors.push('Level should have at least one enemy or collectible for gameplay');
     }
+    
     return stats;
   }
 
