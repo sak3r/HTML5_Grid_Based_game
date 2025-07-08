@@ -95,6 +95,15 @@ export interface GameState {
   dragStart: Position | null;
   enemyConfigPanel: EnemyConfigPanel | null;
   selectedEnemyType: EnemyType;
+  timeLimit: number; // in seconds
+  timeRemaining: number; // in seconds
+  gameStartTime: number; // timestamp when game started
+  lastTimerUpdate: number; // timestamp of last timer update
+  timerAlerts: {
+    at60s: boolean;
+    at30s: boolean;
+    at10s: boolean;
+  };
 }
 
 export type EditorTool = 'enemy' | 'wall' | 'collectible' | 'playerStart' | 'exit' | 'powerup';
@@ -208,6 +217,7 @@ export interface LevelMetadata {
   modifiedAt: string;
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
+  timeLimit?: number; // optional time limit in seconds
 }
 
 export interface LevelStatistics {
@@ -219,4 +229,5 @@ export interface LevelStatistics {
   hasPlayerStart: boolean;
   isValid: boolean;
   validationErrors: string[];
+  timeLimit: number;
 }

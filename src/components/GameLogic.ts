@@ -13,6 +13,7 @@ import {
 export class GameLogic {
   public createInitialGameState(heroType?: HeroType): GameState {
     const selectedHero = heroType || null;
+    const currentTime = Date.now();
     
     return {
       player: {
@@ -60,6 +61,15 @@ export class GameLogic {
       dragStart: null,
       enemyConfigPanel: null,
       selectedEnemyType: ENEMY_TYPES[0],
+      timeLimit: GAME_CONFIG.DEFAULT_TIME_LIMIT,
+      timeRemaining: GAME_CONFIG.DEFAULT_TIME_LIMIT,
+      gameStartTime: currentTime,
+      lastTimerUpdate: currentTime,
+      timerAlerts: {
+        at60s: false,
+        at30s: false,
+        at10s: false,
+      },
     };
   }
 
@@ -77,6 +87,7 @@ export class GameLogic {
       hoveredObject: null,
       isDragging: false,
       dragStart: null,
+      timeRemaining: baseState.timeLimit, // Reset timer in editor
       enemyConfigPanel: null,
       selectedEnemyType: ENEMY_TYPES[0],
     };
@@ -90,6 +101,14 @@ export class GameLogic {
     const currentTime = Date.now();
     let newState = { ...gameState };
 
+    // Update timer
+    newState = this.updateTimer(newState, currentTime);
+
+    // Check if time expired
+    if (newState.timeRemaining <= 0 && newState.gameStatus === 'playing') {
+      newState.gameStatus = 'gameOver';
+      return newState;
+    }
     // Update player
     newState = this.updatePlayer(newState, pressedKeys, currentTime);
 
@@ -122,6 +141,63 @@ export class GameLogic {
     return newState;
   }
 
+  private updateTimer(gameState: GameState, currentTime: number): GameState {
+    const newState = { ...gameState };
+    
+    // Calculate time elapsed since last update
+    const deltaTime = currentTime - gameState.lastTimerUpdate;
+    const secondsElapsed = deltaTime / 1000;
+    
+    // Update remaining time
+    newState.timeRemaining = Math.max(0, gameState.timeRemaining - secondsElapsed);
+    newState.lastTimerUpdate = currentTime;
+    
+    // Trigger timer alerts
+    if (!gameState.timerAlerts.at60s && newState.timeRemaining <= GAME_CONFIG.TIMER_WARNING_THRESHOLD) {
+      newState.timerAlerts.at60s = true;
+      this.triggerTimerAlert('warning', newState.timeRemaining);
+    }
+    
+    if (!gameState.timerAlerts.at30s && newState.timeRemaining <= GAME_CONFIG.TIMER_CRITICAL_THRESHOLD) {
+      newState.timerAlerts.at30s = true;
+      this.triggerTimerAlert('critical', newState.timeRemaining);
+    }
+    
+    if (!gameState.timerAlerts.at10s && newState.timeRemaining <= GAME_CONFIG.TIMER_FINAL_WARNING) {
+      newState.timerAlerts.at10s = true;
+      this.triggerTimerAlert('final', newState.timeRemaining);
+    }
+    
+    return newState;
+  }
+
+  private triggerTimerAlert(type: 'warning' | 'critical' | 'final', timeRemaining: number): void {
+    // Create audio alert (simple beep using Web Audio API)
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Different frequencies for different alert types
+      const frequency = type === 'final' ? 800 : type === 'critical' ? 600 : 400;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      
+      // Different durations for different alert types
+      const duration = type === 'final' ? 0.3 : type === 'critical' ? 0.2 : 0.15;
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    } catch (error) {
+      // Fallback: console log if audio fails
+      console.log(`Timer Alert: ${type} - ${Math.ceil(timeRemaining)}s remaining`);
+    }
+  }
   private updatePlayer(gameState: GameState, pressedKeys: Set<string>, currentTime: number): GameState {
     const newState = { ...gameState };
     const heroType = gameState.selectedHeroType;
@@ -459,6 +535,7 @@ export class GameLogic {
   }
 
   public toggleEditorMode(gameState: GameState): GameState {
+    const currentTime = Date.now();
     const newState = {
       ...gameState,
       editorMode: !gameState.editorMode,
@@ -467,6 +544,7 @@ export class GameLogic {
       hoveredObject: null,
       isDragging: false,
       dragStart: null,
+      lastTimerUpdate: currentTime, // Reset timer update when toggling modes
     };
     
     // When exiting editor mode, apply editor objects to game state
@@ -841,6 +919,7 @@ export class GameLogic {
       hasPlayerStart: false,
       isValid: true,
       validationErrors: [],
+      timeLimit: gameState.timeLimit,
     };
 
     // Count objects and check for required elements
@@ -898,6 +977,7 @@ export class GameLogic {
       metadata: {
         ...metadata,
         modifiedAt: new Date().toISOString(),
+        timeLimit: gameState.timeLimit,
       },
       editorObjects: gameState.editorObjects,
     };
@@ -973,6 +1053,12 @@ export class GameLogic {
     
     // Clear existing editor objects
     newState.editorObjects = [];
+    
+    // Import time limit if available
+    if (levelData.metadata.timeLimit) {
+      newState.timeLimit = levelData.metadata.timeLimit;
+      newState.timeRemaining = levelData.metadata.timeLimit;
+    }
     
     // Import from editorObjects if available (new format)
     if (levelData.editorObjects && levelData.editorObjects.length > 0) {
@@ -1100,6 +1186,7 @@ export class GameLogic {
         modifiedAt: new Date().toISOString(),
         difficulty: metadata.difficulty || 'medium',
         tags: metadata.tags || [],
+        timeLimit: metadata.timeLimit || gameState.timeLimit,
       };
       
       const levelData = this.exportLevelData(gameState, fullMetadata);
@@ -1131,5 +1218,56 @@ export class GameLogic {
       console.error('Failed to delete level:', error);
       return false;
     }
+  }
+  public setTimeLimit(gameState: GameState, timeLimit: number): GameState {
+    const currentTime = Date.now();
+    return {
+      ...gameState,
+      timeLimit,
+      timeRemaining: timeLimit,
+      gameStartTime: currentTime,
+      lastTimerUpdate: currentTime,
+      timerAlerts: {
+        at60s: false,
+        at30s: false,
+        at10s: false,
+      },
+    };
+  }
+
+  public resetTimer(gameState: GameState): GameState {
+    const currentTime = Date.now();
+    return {
+      ...gameState,
+      timeRemaining: gameState.timeLimit,
+      gameStartTime: currentTime,
+      lastTimerUpdate: currentTime,
+      timerAlerts: {
+        at60s: false,
+        at30s: false,
+        at10s: false,
+      },
+    };
+  }
+
+  public formatTime(seconds: number): string {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  public getTimerColor(timeRemaining: number): string {
+    if (timeRemaining <= GAME_CONFIG.TIMER_FINAL_WARNING) {
+      return 'text-red-600';
+    } else if (timeRemaining <= GAME_CONFIG.TIMER_CRITICAL_THRESHOLD) {
+      return 'text-red-500';
+    } else if (timeRemaining <= GAME_CONFIG.TIMER_WARNING_THRESHOLD) {
+      return 'text-yellow-500';
+    }
+    return 'text-gray-700';
+  }
+
+  public shouldPulse(timeRemaining: number): boolean {
+    return timeRemaining <= GAME_CONFIG.TIMER_CRITICAL_THRESHOLD;
   }
 }

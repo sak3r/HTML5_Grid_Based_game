@@ -16,6 +16,10 @@ export const GAME_CONFIG: GameConfig = {
   POWER_UP_SPEED_MULTIPLIER: 0.5, // 50% faster
   POWER_UP_SHOOT_MULTIPLIER: 0.5, // 50% faster
   EDITOR_SIDEBAR_WIDTH: 300,
+  DEFAULT_TIME_LIMIT: 180, // 3 minutes in seconds
+  TIMER_WARNING_THRESHOLD: 60, // yellow at 60 seconds
+  TIMER_CRITICAL_THRESHOLD: 30, // red at 30 seconds
+  TIMER_FINAL_WARNING: 10, // final warning at 10 seconds
 };
 
 export const GRID_COLS = Math.floor(GAME_CONFIG.CANVAS_WIDTH / GAME_CONFIG.GRID_SIZE);
