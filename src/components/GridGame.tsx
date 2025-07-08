@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { GameState, Position, HeroType, EditorTool } from '../types/GameTypes';
+import { GameState, Position, HeroType, EditorTool, EnemyType } from '../types/GameTypes';
 import { GAME_CONFIG, GRID_COLS, GRID_ROWS } from '../config/GameConfig';
 import { GameRenderer } from './GameRenderer';
 import { GameLogic } from './GameLogic';
 import HeroSelection from './HeroSelection';
 import EditorSidebar from './EditorSidebar';
+import EnemyConfigPanel from './EnemyConfigPanel';
 
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,6 +67,30 @@ const GridGame: React.FC = () => {
   const handleToolSelect = useCallback((tool: EditorTool) => {
     if (gameState) {
       setGameState(gameLogic.current.setSelectedTool(gameState, tool));
+    }
+  }, [gameState]);
+
+  const handleEnemyTypeSelect = useCallback((enemyType: EnemyType) => {
+    if (gameState) {
+      setGameState(gameLogic.current.setSelectedEnemyType(gameState, enemyType));
+    }
+  }, [gameState]);
+
+  const handleEnemyConfigConfirm = useCallback((config: any) => {
+    if (gameState) {
+      if (gameState.selectedObject) {
+        // Editing existing enemy
+        setGameState(gameLogic.current.updateEnemyFromConfig(gameState, config));
+      } else {
+        // Placing new enemy
+        setGameState(gameLogic.current.placeEnemyFromConfig(gameState, config));
+      }
+    }
+  }, [gameState]);
+
+  const handleEnemyConfigCancel = useCallback(() => {
+    if (gameState) {
+      setGameState(gameLogic.current.closeEnemyConfigPanel(gameState));
     }
   }, [gameState]);
 
@@ -514,6 +539,24 @@ const GridGame: React.FC = () => {
           onTestLevel={handleTestLevel}
           onSaveLevel={handleSaveLevel}
           onLoadLevel={handleLoadLevel}
+          onExportLevel={() => {}}
+          onImportLevel={() => {}}
+          onDeleteLevel={() => {}}
+          gameState={gameState}
+          levelStats={gameLogic.current.validateLevel(gameState)}
+          savedLevels={gameLogic.current.getSavedLevels()}
+          selectedEnemyType={gameState.selectedEnemyType}
+          onEnemyTypeSelect={handleEnemyTypeSelect}
+        />
+      )}
+      
+      {/* Enemy Configuration Panel */}
+      {gameState?.enemyConfigPanel?.isOpen && (
+        <EnemyConfigPanel
+          config={gameState.enemyConfigPanel}
+          onConfirm={handleEnemyConfigConfirm}
+          onCancel={handleEnemyConfigCancel}
+          isEditing={!!gameState.selectedObject}
         />
       )}
     </div>

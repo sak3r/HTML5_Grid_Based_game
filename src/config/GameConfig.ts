@@ -1,4 +1,5 @@
 import { GameConfig, HeroType } from '../types/GameTypes';
+import { EnemyType, BehaviorPattern } from '../types/GameTypes';
 
 export const GAME_CONFIG: GameConfig = {
   CANVAS_WIDTH: 800,
@@ -54,6 +55,66 @@ export const HERO_TYPES: HeroType[] = [
   },
 ];
 
+// Enemy Types
+export const ENEMY_TYPES: EnemyType[] = [
+  {
+    id: 'guard',
+    name: 'Guard',
+    description: 'Basic enemy with balanced stats',
+    color: '#ef4444',
+    borderColor: '#dc2626',
+    icon: '🛡️',
+    maxHealth: 2,
+    moveSpeed: 800,
+    shootCooldown: 1000,
+    shootRange: 5,
+    defaultPatrolRadius: 3,
+    defaultBehavior: 'patrol',
+  },
+  {
+    id: 'sniper',
+    name: 'Sniper',
+    description: 'Long-range enemy with fast shooting',
+    color: '#8b5cf6',
+    borderColor: '#7c3aed',
+    icon: '🎯',
+    maxHealth: 1,
+    moveSpeed: 1200,
+    shootCooldown: 600,
+    shootRange: 8,
+    defaultPatrolRadius: 2,
+    defaultBehavior: 'guard',
+  },
+  {
+    id: 'tank',
+    name: 'Tank',
+    description: 'Heavy enemy with high health',
+    color: '#059669',
+    borderColor: '#047857',
+    icon: '🚗',
+    maxHealth: 4,
+    moveSpeed: 1500,
+    shootCooldown: 1500,
+    shootRange: 4,
+    defaultPatrolRadius: 2,
+    defaultBehavior: 'aggressive',
+  },
+  {
+    id: 'scout',
+    name: 'Scout',
+    description: 'Fast enemy with low health',
+    color: '#f59e0b',
+    borderColor: '#d97706',
+    icon: '⚡',
+    maxHealth: 1,
+    moveSpeed: 400,
+    shootCooldown: 800,
+    shootRange: 3,
+    defaultPatrolRadius: 4,
+    defaultBehavior: 'aggressive',
+  },
+];
+
 // Colors
 export const COLORS = {
   GRID: '#e5e7eb',
@@ -86,6 +147,12 @@ export const ENEMY_CONFIGS = [
     borderColor: '#dc2626',
     health: GAME_CONFIG.ENEMY_MAX_HEALTH,
     maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
+    enemyType: ENEMY_TYPES[0], // Guard
+    moveSpeed: ENEMY_TYPES[0].moveSpeed,
+    shootCooldown: ENEMY_TYPES[0].shootCooldown,
+    shootRange: ENEMY_TYPES[0].shootRange,
+    startDirection: { x: 1, y: 0 },
+    behaviorPattern: ENEMY_TYPES[0].defaultBehavior,
   },
   {
     id: 'enemy2',
@@ -95,6 +162,12 @@ export const ENEMY_CONFIGS = [
     borderColor: '#ea580c',
     health: GAME_CONFIG.ENEMY_MAX_HEALTH,
     maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
+    enemyType: ENEMY_TYPES[1], // Sniper
+    moveSpeed: ENEMY_TYPES[1].moveSpeed,
+    shootCooldown: ENEMY_TYPES[1].shootCooldown,
+    shootRange: ENEMY_TYPES[1].shootRange,
+    startDirection: { x: -1, y: 0 },
+    behaviorPattern: ENEMY_TYPES[1].defaultBehavior,
   },
   {
     id: 'enemy3',
@@ -104,6 +177,12 @@ export const ENEMY_CONFIGS = [
     borderColor: '#7c3aed',
     health: GAME_CONFIG.ENEMY_MAX_HEALTH,
     maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
+    enemyType: ENEMY_TYPES[2], // Tank
+    moveSpeed: ENEMY_TYPES[2].moveSpeed,
+    shootCooldown: ENEMY_TYPES[2].shootCooldown,
+    shootRange: ENEMY_TYPES[2].shootRange,
+    startDirection: { x: 0, y: 1 },
+    behaviorPattern: ENEMY_TYPES[2].defaultBehavior,
   },
   {
     id: 'enemy4',
@@ -113,6 +192,12 @@ export const ENEMY_CONFIGS = [
     borderColor: '#0891b2',
     health: GAME_CONFIG.ENEMY_MAX_HEALTH,
     maxHealth: GAME_CONFIG.ENEMY_MAX_HEALTH,
+    enemyType: ENEMY_TYPES[3], // Scout
+    moveSpeed: ENEMY_TYPES[3].moveSpeed,
+    shootCooldown: ENEMY_TYPES[3].shootCooldown,
+    shootRange: ENEMY_TYPES[3].shootRange,
+    startDirection: { x: 0, y: -1 },
+    behaviorPattern: ENEMY_TYPES[3].defaultBehavior,
   },
 ];
 

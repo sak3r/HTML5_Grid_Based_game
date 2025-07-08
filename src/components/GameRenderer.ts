@@ -196,12 +196,12 @@ export class GameRenderer {
     const centerY = pixelY + (GAME_CONFIG.GRID_SIZE / 2);
     const radius = obj.config.patrolRadius * GAME_CONFIG.GRID_SIZE;
     
-    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+    this.ctx.fillStyle = `${obj.config.color}20`; // 20 = 12.5% opacity in hex
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
     this.ctx.fill();
     
-    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+    this.ctx.strokeStyle = `${obj.config.color}50`; // 50 = 31% opacity in hex
     this.ctx.lineWidth = 1;
     this.ctx.stroke();
     
@@ -212,6 +212,25 @@ export class GameRenderer {
     this.ctx.strokeStyle = obj.config.borderColor;
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+    
+    // Draw enemy type indicator
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 12px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(
+      obj.config.enemyType.icon, 
+      pixelX + GAME_CONFIG.GRID_SIZE / 2, 
+      pixelY + GAME_CONFIG.GRID_SIZE / 2 + 4
+    );
+    
+    // Draw direction indicator
+    const dirX = pixelX + GAME_CONFIG.GRID_SIZE / 2 + (obj.config.startDirection.x * 8);
+    const dirY = pixelY + GAME_CONFIG.GRID_SIZE / 2 + (obj.config.startDirection.y * 8);
+    
+    this.ctx.fillStyle = obj.config.borderColor;
+    this.ctx.beginPath();
+    this.ctx.arc(dirX, dirY, 3, 0, 2 * Math.PI);
+    this.ctx.fill();
   }
 
   private drawEditorWall(obj: EditorObject): void {

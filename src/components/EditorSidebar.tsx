@@ -1,5 +1,6 @@
 import React from 'react';
-import { EditorTool, GameState, LevelStatistics, LevelMetadata } from '../types/GameTypes';
+import { EditorTool, GameState, LevelStatistics, LevelMetadata, EnemyType } from '../types/GameTypes';
+import { ENEMY_TYPES } from '../config/GameConfig';
 import { 
   Users, 
   Square, 
@@ -15,7 +16,11 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
+  Shield,
+  Target,
+  Truck,
+  Zap
 } from 'lucide-react';
 
 interface EditorSidebarProps {
@@ -30,6 +35,8 @@ interface EditorSidebarProps {
   gameState: GameState;
   levelStats: LevelStatistics;
   savedLevels: string[];
+  selectedEnemyType: EnemyType;
+  onEnemyTypeSelect: (enemyType: EnemyType) => void;
 }
 
 const EditorSidebar: React.FC<EditorSidebarProps> = ({
@@ -44,6 +51,8 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
   gameState,
   levelStats,
   savedLevels,
+  selectedEnemyType,
+  onEnemyTypeSelect,
 }) => {
   const tools = [
     {
@@ -90,6 +99,20 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
     },
   ];
 
+  const getEnemyTypeIcon = (enemyType: EnemyType) => {
+    switch (enemyType.id) {
+      case 'guard':
+        return <Shield className="w-4 h-4" />;
+      case 'sniper':
+        return <Target className="w-4 h-4" />;
+      case 'tank':
+        return <Truck className="w-4 h-4" />;
+      case 'scout':
+        return <Zap className="w-4 h-4" />;
+      default:
+        return <Shield className="w-4 h-4" />;
+    }
+  };
   return (
     <div className="w-80 bg-white border-l border-gray-300 shadow-lg flex flex-col max-h-screen">
       {/* Header */}
@@ -135,6 +158,53 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
           );
         })}
       </div>
+
+      {/* Enemy Type Selection (shown when enemy tool is selected) */}
+      {selectedTool === 'enemy' && (
+        <div className="p-4 border-t border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-700 mb-3">Enemy Types</h3>
+          
+          <div className="space-y-2">
+            {ENEMY_TYPES.map((enemyType) => (
+              <button
+                key={enemyType.id}
+                onClick={() => onEnemyTypeSelect(enemyType)}
+                className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                  selectedEnemyType.id === enemyType.id
+                    ? 'border-blue-500 bg-blue-50 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-start space-x-3">
+                  <div 
+                    className="p-2 rounded-lg text-white flex-shrink-0"
+                    style={{ backgroundColor: enemyType.color }}
+                  >
+                    {getEnemyTypeIcon(enemyType)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`font-medium ${selectedEnemyType.id === enemyType.id ? 'text-blue-900' : 'text-gray-900'}`}>
+                      {enemyType.name}
+                    </h4>
+                    <p className={`text-xs mt-1 ${selectedEnemyType.id === enemyType.id ? 'text-blue-700' : 'text-gray-600'}`}>
+                      {enemyType.description}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-2 text-xs">
+                      <span className="text-gray-500">HP: {enemyType.maxHealth}</span>
+                      <span className="text-gray-500">Range: {enemyType.shootRange}</span>
+                      <span className="text-gray-500">Speed: {enemyType.moveSpeed}ms</span>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          
+          <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+            💡 Click on the grid to configure and place the selected enemy type
+          </div>
+        </div>
+      )}
 
       {/* Level Statistics */}
       <div className="p-4 border-t border-gray-200">

@@ -30,6 +30,38 @@ export interface Enemy {
   hitTime: number;
   isDestroyed: boolean;
   destroyTime: number;
+  enemyType: EnemyType;
+  moveSpeed: number;
+  shootCooldown: number;
+  shootRange: number;
+  startDirection: Position;
+  behaviorPattern: BehaviorPattern;
+}
+
+export interface EnemyType {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  borderColor: string;
+  icon: string;
+  maxHealth: number;
+  moveSpeed: number;
+  shootCooldown: number;
+  shootRange: number;
+  defaultPatrolRadius: number;
+  defaultBehavior: BehaviorPattern;
+}
+
+export type BehaviorPattern = 'patrol' | 'guard' | 'aggressive' | 'defensive';
+
+export interface EnemyConfigPanel {
+  isOpen: boolean;
+  position: Position;
+  enemyType: EnemyType;
+  patrolRadius: number;
+  startDirection: Position;
+  behaviorPattern: BehaviorPattern;
 }
 
 export interface Player {
@@ -61,6 +93,8 @@ export interface GameState {
   hoveredObject: EditorObject | null;
   isDragging: boolean;
   dragStart: Position | null;
+  enemyConfigPanel: EnemyConfigPanel | null;
+  selectedEnemyType: EnemyType;
 }
 
 export type EditorTool = 'enemy' | 'wall' | 'collectible' | 'playerStart' | 'exit' | 'powerup';
@@ -77,6 +111,12 @@ export interface EnemyConfig {
   color: string;
   borderColor: string;
   health: number;
+  enemyType: EnemyType;
+  moveSpeed: number;
+  shootCooldown: number;
+  shootRange: number;
+  startDirection: Position;
+  behaviorPattern: BehaviorPattern;
 }
 
 export interface WallConfig {

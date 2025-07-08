@@ -1,5 +1,5 @@
 import { GameState, Position, Projectile, Enemy } from '../types/GameTypes';
-import { GAME_CONFIG, COLORS, ENEMY_CONFIGS, COLLECTIBLE_HERO_CONFIGS, POWER_UP_CONFIGS, POWER_UP_TYPES } from '../config/GameConfig';
+import { GAME_CONFIG, COLORS, ENEMY_CONFIGS, COLLECTIBLE_HERO_CONFIGS, POWER_UP_CONFIGS, POWER_UP_TYPES, ENEMY_TYPES } from '../config/GameConfig';
 import { 
   calculateDistance, 
   isValidPosition, 
@@ -58,6 +58,8 @@ export class GameLogic {
       hoveredObject: null,
       isDragging: false,
       dragStart: null,
+      enemyConfigPanel: null,
+      selectedEnemyType: ENEMY_TYPES[0],
     };
   }
 
@@ -75,6 +77,8 @@ export class GameLogic {
       hoveredObject: null,
       isDragging: false,
       dragStart: null,
+      enemyConfigPanel: null,
+      selectedEnemyType: ENEMY_TYPES[0],
     };
   }
 
@@ -158,19 +162,31 @@ export class GameLogic {
     
     newState.enemies = gameState.enemies.map(enemy => {
       const distanceToPlayer = calculateDistance(enemy.originalPosition, gameState.player.position);
-      const shouldChase = distanceToPlayer <= enemy.patrolRadius;
+      const shouldChase = distanceToPlayer <= enemy.shootRange;
       
       let newEnemy = { ...enemy };
       
       // Update position
-      if (currentTime - enemy.lastMoveTime >= GAME_CONFIG.ENEMY_MOVE_SPEED) {
+      if (currentTime - enemy.lastMoveTime >= enemy.moveSpeed) {
         let newPosition = enemy.position;
         
-        if (shouldChase) {
+        if (shouldChase && enemy.behaviorPattern === 'aggressive') {
           newPosition = moveTowardsTarget(enemy.position, gameState.player.position);
-        } else if (enemy.isChasing) {
+        } else if (enemy.behaviorPattern === 'patrol') {
           if (enemy.position.x !== enemy.originalPosition.x || enemy.position.y !== enemy.originalPosition.y) {
             newPosition = moveTowardsTarget(enemy.position, enemy.originalPosition);
+          }
+        } else if (enemy.behaviorPattern === 'guard') {
+          // Guards stay in place but can rotate
+        } else if (enemy.behaviorPattern === 'defensive') {
+          // Move away from player if too close
+          if (distanceToPlayer <= 2) {
+            const dx = enemy.position.x - gameState.player.position.x;
+            const dy = enemy.position.y - gameState.player.position.y;
+            newPosition = {
+              x: Math.max(0, Math.min(GRID_COLS - 1, enemy.position.x + Math.sign(dx))),
+              y: Math.max(0, Math.min(GRID_ROWS - 1, enemy.position.y + Math.sign(dy))),
+            };
           }
         }
         
@@ -179,15 +195,15 @@ export class GameLogic {
         newEnemy = {
           ...newEnemy,
           position: newPosition,
-          isChasing: shouldChase,
+          isChasing: shouldChase && enemy.behaviorPattern === 'aggressive',
           lastMoveTime: moved ? currentTime : enemy.lastMoveTime,
         };
       }
       
       // Handle shooting
-      if (shouldChase && 
+      if (distanceToPlayer <= enemy.shootRange && 
           isInLineOfSight(newEnemy.position, gameState.player.position) &&
-          currentTime - enemy.lastShootTime >= GAME_CONFIG.SHOOT_COOLDOWN) {
+          currentTime - enemy.lastShootTime >= enemy.shootCooldown) {
         
         const direction = getDirectionToTarget(newEnemy.position, gameState.player.position);
         const projectile: Projectile = {
@@ -483,7 +499,7 @@ export class GameLogic {
       if (clickedObject) {
         // Right-click on object: configure or delete
         if (clickedObject.type === 'enemy') {
-          return this.configureEnemyObject(newState, clickedObject);
+          return this.openEnemyConfigPanel(newState, clickedObject);
         } else {
           // Delete object
           return this.deleteEditorObject(newState, clickedObject.id);
@@ -508,15 +524,34 @@ export class GameLogic {
 
     switch (gameState.selectedTool) {
       case 'enemy':
+        // Open enemy configuration panel instead of placing immediately
+        newState.enemyConfigPanel = {
+          isOpen: true,
+          position: { ...position },
+          enemyType: gameState.selectedEnemyType,
+          patrolRadius: gameState.selectedEnemyType.defaultPatrolRadius,
+          startDirection: { x: 1, y: 0 },
+          behaviorPattern: gameState.selectedEnemyType.defaultBehavior,
+        };
+        break;
+
+      case 'enemy_place':
+        // Actually place the enemy (called from config panel)
         const enemyObject: EditorObject = {
           id: objectId,
           type: 'enemy',
           position: { ...position },
           config: {
-            patrolRadius: 3,
-            color: '#ef4444',
-            borderColor: '#dc2626',
-            health: GAME_CONFIG.ENEMY_MAX_HEALTH,
+            enemyType: gameState.selectedEnemyType,
+            patrolRadius: gameState.selectedEnemyType.defaultPatrolRadius,
+            color: gameState.selectedEnemyType.color,
+            borderColor: gameState.selectedEnemyType.borderColor,
+            health: gameState.selectedEnemyType.maxHealth,
+            moveSpeed: gameState.selectedEnemyType.moveSpeed,
+            shootCooldown: gameState.selectedEnemyType.shootCooldown,
+            shootRange: gameState.selectedEnemyType.shootRange,
+            startDirection: { x: 1, y: 0 },
+            behaviorPattern: gameState.selectedEnemyType.defaultBehavior,
           } as EnemyConfig,
         };
         newState.editorObjects = [...gameState.editorObjects, enemyObject];
@@ -602,24 +637,94 @@ export class GameLogic {
     };
   }
   
-  private configureEnemyObject(gameState: GameState, enemyObject: EditorObject): GameState {
-    const newRadius = prompt('Enter patrol radius (1-8):', enemyObject.config.patrolRadius.toString());
-    if (newRadius && !isNaN(parseInt(newRadius))) {
-      const radius = Math.max(1, Math.min(8, parseInt(newRadius)));
-      
-      const updatedObjects = gameState.editorObjects.map(obj => 
-        obj.id === enemyObject.id 
-          ? { ...obj, config: { ...obj.config, patrolRadius: radius } }
-          : obj
-      );
-      
-      return {
-        ...gameState,
-        editorObjects: updatedObjects,
-      };
-    }
+  private openEnemyConfigPanel(gameState: GameState, enemyObject: EditorObject): GameState {
+    return {
+      ...gameState,
+      enemyConfigPanel: {
+        isOpen: true,
+        position: enemyObject.position,
+        enemyType: enemyObject.config.enemyType,
+        patrolRadius: enemyObject.config.patrolRadius,
+        startDirection: enemyObject.config.startDirection,
+        behaviorPattern: enemyObject.config.behaviorPattern,
+      },
+      selectedObject: enemyObject,
+    };
+  }
+
+  public closeEnemyConfigPanel(gameState: GameState): GameState {
+    return {
+      ...gameState,
+      enemyConfigPanel: null,
+    };
+  }
+
+  public setSelectedEnemyType(gameState: GameState, enemyType: EnemyType): GameState {
+    return {
+      ...gameState,
+      selectedEnemyType: enemyType,
+    };
+  }
+
+  public placeEnemyFromConfig(gameState: GameState, config: EnemyConfigPanel): GameState {
+    const newState = { ...gameState };
+    const objectId = generateId();
+
+    const enemyObject: EditorObject = {
+      id: objectId,
+      type: 'enemy',
+      position: { ...config.position },
+      config: {
+        enemyType: config.enemyType,
+        patrolRadius: config.patrolRadius,
+        color: config.enemyType.color,
+        borderColor: config.enemyType.borderColor,
+        health: config.enemyType.maxHealth,
+        moveSpeed: config.enemyType.moveSpeed,
+        shootCooldown: config.enemyType.shootCooldown,
+        shootRange: config.enemyType.shootRange,
+        startDirection: config.startDirection,
+        behaviorPattern: config.behaviorPattern,
+      } as EnemyConfig,
+    };
+
+    newState.editorObjects = [...gameState.editorObjects, enemyObject];
+    newState.enemyConfigPanel = null;
     
-    return gameState;
+    return newState;
+  }
+
+  public updateEnemyFromConfig(gameState: GameState, config: EnemyConfigPanel): GameState {
+    if (!gameState.selectedObject) return gameState;
+
+    const newState = { ...gameState };
+    
+    const updatedObjects = gameState.editorObjects.map(obj => 
+      obj.id === gameState.selectedObject!.id 
+        ? { 
+            ...obj, 
+            config: {
+              ...obj.config,
+              enemyType: config.enemyType,
+              patrolRadius: config.patrolRadius,
+              color: config.enemyType.color,
+              borderColor: config.enemyType.borderColor,
+              health: config.enemyType.maxHealth,
+              moveSpeed: config.enemyType.moveSpeed,
+              shootCooldown: config.enemyType.shootCooldown,
+              shootRange: config.enemyType.shootRange,
+              startDirection: config.startDirection,
+              behaviorPattern: config.behaviorPattern,
+            }
+          }
+        : obj
+    );
+    
+    newState.editorObjects = updatedObjects;
+    newState.enemyConfigPanel = null;
+    newState.selectedObject = null;
+    
+    return newState;
   }
   
   public setHoveredObject(gameState: GameState, position: Position | null): GameState {
@@ -672,6 +777,12 @@ export class GameLogic {
             hitTime: 0,
             isDestroyed: false,
             destroyTime: 0,
+            enemyType: obj.config.enemyType,
+            moveSpeed: obj.config.moveSpeed,
+            shootCooldown: obj.config.shootCooldown,
+            shootRange: obj.config.shootRange,
+            startDirection: obj.config.startDirection,
+            behaviorPattern: obj.config.behaviorPattern,
           };
           newState.enemies.push(enemy);
           break;
@@ -812,6 +923,12 @@ export class GameLogic {
             hitTime: 0,
             isDestroyed: false,
             destroyTime: 0,
+            enemyType: obj.config.enemyType,
+            moveSpeed: obj.config.moveSpeed,
+            shootCooldown: obj.config.shootCooldown,
+            shootRange: obj.config.shootRange,
+            startDirection: obj.config.startDirection,
+            behaviorPattern: obj.config.behaviorPattern,
           });
           break;
         case 'wall':
@@ -881,10 +998,16 @@ export class GameLogic {
           type: 'enemy',
           position: enemy.position,
           config: {
+            enemyType: enemy.enemyType || ENEMY_TYPES[0],
             patrolRadius: enemy.patrolRadius,
             color: enemy.color,
             borderColor: enemy.borderColor,
             health: enemy.health,
+            moveSpeed: enemy.moveSpeed || enemy.enemyType?.moveSpeed || ENEMY_TYPES[0].moveSpeed,
+            shootCooldown: enemy.shootCooldown || enemy.enemyType?.shootCooldown || ENEMY_TYPES[0].shootCooldown,
+            shootRange: enemy.shootRange || enemy.enemyType?.shootRange || ENEMY_TYPES[0].shootRange,
+            startDirection: enemy.startDirection || { x: 1, y: 0 },
+            behaviorPattern: enemy.behaviorPattern || enemy.enemyType?.defaultBehavior || 'patrol',
           },
         });
       });
