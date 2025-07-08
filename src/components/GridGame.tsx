@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { GameState, Position } from '../types/GameTypes';
+import { GameState, Position, HeroType } from '../types/GameTypes';
 import { GAME_CONFIG, GRID_COLS, GRID_ROWS } from '../config/GameConfig';
 import { GameRenderer } from './GameRenderer';
 import { GameLogic } from './GameLogic';
+import HeroSelection from './HeroSelection';
 
 const GridGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -12,14 +13,17 @@ const GridGame: React.FC = () => {
   const gameLogic = useRef<GameLogic>(new GameLogic());
   const renderer = useRef<GameRenderer | null>(null);
 
-  const [gameState, setGameState] = useState<GameState>(() => 
-    gameLogic.current.createInitialGameState()
-  );
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [showHeroSelection, setShowHeroSelection] = useState<boolean>(true);
 
   // Handle shooting
   const handleShooting = useCallback((direction: Position) => {
+    if (!gameState) return;
+    
     const currentTime = Date.now();
-    if (currentTime - gameState.player.lastShootTime >= GAME_CONFIG.SHOOT_COOLDOWN) {
+    const shootCooldown = gameLogic.current.getPlayerShootCooldown(gameState);
+    
+    if (currentTime - gameState.player.lastShootTime >= shootCooldown) {
       const projectile = gameLogic.current.createProjectile(
         gameState.player.position,
         direction,
@@ -27,7 +31,7 @@ const GridGame: React.FC = () => {
       );
       
       setGameState(prev => ({
-        ...prev,
+        ...prev!,
         projectiles: [...prev.projectiles, projectile],
         player: {
           ...prev.player,
@@ -35,22 +39,32 @@ const GridGame: React.FC = () => {
         },
       }));
     }
-  }, [gameState.player.lastShootTime, gameState.player.position]);
+  }, [gameState?.player.lastShootTime, gameState?.player.position]);
 
   // Handle restart
   const handleRestart = useCallback(() => {
-    setGameState(gameLogic.current.createInitialGameState());
+    if (gameState?.selectedHeroType) {
+      setGameState(gameLogic.current.createInitialGameState(gameState.selectedHeroType));
+    } else {
+      setShowHeroSelection(true);
+      setGameState(null);
+    }
+  }, [gameState?.selectedHeroType]);
+
+  const handleHeroSelect = useCallback((heroType: HeroType) => {
+    setGameState(gameLogic.current.createInitialGameState(heroType));
+    setShowHeroSelection(false);
   }, []);
 
   const updateGame = useCallback((deltaTime: number) => {
     setGameState(prev => {
-      if (prev.gameStatus !== 'playing') return prev;
+      if (!prev || prev.gameStatus !== 'playing') return prev;
       return gameLogic.current.updateGame(prev, pressedKeys.current, deltaTime);
     });
   }, []);
 
   const render = useCallback(() => {
-    if (renderer.current) {
+    if (renderer.current && gameState) {
       renderer.current.render(gameState);
     }
   }, [gameState]);
@@ -102,9 +116,16 @@ const GridGame: React.FC = () => {
       }
       
       // Restart key
-      if (key === 'KeyR' && (gameState.gameStatus === 'gameOver' || gameState.gameStatus === 'victory' || gameState.gameStatus === 'levelComplete')) {
+      if (key === 'KeyR' && gameState && (gameState.gameStatus === 'gameOver' || gameState.gameStatus === 'victory' || gameState.gameStatus === 'levelComplete')) {
         event.preventDefault();
         handleRestart();
+      }
+      
+      // Back to hero selection
+      if (key === 'Escape') {
+        event.preventDefault();
+        setShowHeroSelection(true);
+        setGameState(null);
       }
     };
 
@@ -123,11 +144,11 @@ const GridGame: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleShooting, handleRestart, gameState.gameStatus]);
+  }, [handleShooting, handleRestart, gameState?.gameStatus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !gameState) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -144,12 +165,31 @@ const GridGame: React.FC = () => {
     };
   }, [gameLoop]);
 
+  // Show hero selection screen
+  if (showHeroSelection) {
+    return <HeroSelection onHeroSelect={handleHeroSelect} />;
+  }
+
+  // Show loading state
+  if (!gameState) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
       <div className="mb-6 text-center">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Enhanced Grid Game</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          Enhanced Grid Game - {gameState.selectedHeroType?.name || 'Unknown Hero'}
+        </h1>
         <p className="text-gray-600">
-          WASD to move • Arrow Keys to shoot • Avoid enemies • Reach the top to win
+          WASD to move • Arrow Keys to shoot • Avoid enemies • Reach the top to win • ESC for hero selection
         </p>
         <div className="mt-2 flex items-center justify-center space-x-4 text-sm text-gray-500">
           <span>Score: {gameState.score}</span>
@@ -160,6 +200,17 @@ const GridGame: React.FC = () => {
           <span>•</span>
           <span>Status: {gameState.gameStatus}</span>
         </div>
+        
+        {/* Hero Stats */}
+        {gameState.selectedHeroType && (
+          <div className="mt-3 flex items-center justify-center space-x-6 text-xs text-gray-600">
+            <span>Move Speed: {gameState.selectedHeroType.moveSpeed}ms</span>
+            <span>•</span>
+            <span>Shoot Rate: {gameState.selectedHeroType.shootCooldown}ms</span>
+            <span>•</span>
+            <span>Max Health: {gameState.selectedHeroType.maxHealth}</span>
+          </div>
+        )}
         
         {/* Health Bar */}
         <div className="mt-3 flex items-center justify-center space-x-2">

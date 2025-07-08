@@ -11,14 +11,16 @@ import {
 } from '../utils/GameUtils';
 
 export class GameLogic {
-  public createInitialGameState(): GameState {
+  public createInitialGameState(heroType?: HeroType): GameState {
+    const selectedHero = heroType || null;
+    
     return {
       player: {
         position: { x: 12, y: 17 },
         lastMoveTime: 0,
         lastShootTime: 0,
-        health: GAME_CONFIG.PLAYER_MAX_HEALTH,
-        maxHealth: GAME_CONFIG.PLAYER_MAX_HEALTH,
+        health: selectedHero?.maxHealth || GAME_CONFIG.PLAYER_MAX_HEALTH,
+        maxHealth: selectedHero?.maxHealth || GAME_CONFIG.PLAYER_MAX_HEALTH,
         isHit: false,
         hitTime: 0,
       },
@@ -38,6 +40,7 @@ export class GameLogic {
       gameStatus: 'playing',
       score: 0,
       level: 1,
+      selectedHeroType: selectedHero,
     };
   }
 
@@ -79,6 +82,8 @@ export class GameLogic {
 
   private updatePlayer(gameState: GameState, pressedKeys: Set<string>, currentTime: number): GameState {
     const newState = { ...gameState };
+    const heroType = gameState.selectedHeroType;
+    const moveSpeed = heroType?.moveSpeed || GAME_CONFIG.PLAYER_MOVE_SPEED;
     
     // Handle movement
     let deltaX = 0;
@@ -90,7 +95,7 @@ export class GameLogic {
     if (pressedKeys.has('KeyD') || pressedKeys.has('ArrowRight')) deltaX += 1;
 
     // Apply movement
-    if (currentTime - gameState.player.lastMoveTime >= GAME_CONFIG.PLAYER_MOVE_SPEED && (deltaX !== 0 || deltaY !== 0)) {
+    if (currentTime - gameState.player.lastMoveTime >= moveSpeed && (deltaX !== 0 || deltaY !== 0)) {
       const newX = gameState.player.position.x + Math.sign(deltaX);
       const newY = gameState.player.position.y + Math.sign(deltaY);
       
@@ -327,5 +332,9 @@ export class GameLogic {
       color: ownerId === 'player' ? COLORS.PLAYER_PROJECTILE : COLORS.ENEMY_PROJECTILE,
       lastMoveTime: Date.now(),
     };
+  }
+
+  public getPlayerShootCooldown(gameState: GameState): number {
+    return gameState.selectedHeroType?.shootCooldown || GAME_CONFIG.SHOOT_COOLDOWN;
   }
 }

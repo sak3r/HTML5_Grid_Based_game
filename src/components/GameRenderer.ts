@@ -80,7 +80,7 @@ export class GameRenderer {
     });
 
     // Draw player
-    this.drawPlayer(gameState.player);
+    this.drawPlayerWithHeroType(gameState.player, gameState.selectedHeroType);
 
     // Draw game over overlay if needed
     if (gameState.gameStatus === 'gameOver') {
@@ -115,6 +115,35 @@ export class GameRenderer {
     // Determine color based on hit state
     const color = player.isHit ? COLORS.HIT_FLASH : COLORS.PLAYER;
     const borderColor = player.isHit ? COLORS.HIT_FLASH : COLORS.PLAYER_BORDER;
+
+    // Shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Character
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Border
+    this.ctx.strokeStyle = borderColor;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(pixelX + 2, pixelY + 2, GAME_CONFIG.GRID_SIZE - 4, GAME_CONFIG.GRID_SIZE - 4);
+
+    // Player highlight
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    this.ctx.fillRect(pixelX + 4, pixelY + 4, GAME_CONFIG.GRID_SIZE - 12, 8);
+  }
+
+  private drawPlayerWithHeroType(player: Player, heroType: HeroType | null): void {
+    const position = player.position;
+    const pixelX = position.x * GAME_CONFIG.GRID_SIZE;
+    const pixelY = position.y * GAME_CONFIG.GRID_SIZE;
+
+    // Determine color based on hit state
+    const baseColor = heroType?.color || COLORS.PLAYER;
+    const baseBorderColor = heroType?.borderColor || COLORS.PLAYER_BORDER;
+    const color = player.isHit ? COLORS.HIT_FLASH : baseColor;
+    const borderColor = player.isHit ? COLORS.HIT_FLASH : baseBorderColor;
 
     // Shadow
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';

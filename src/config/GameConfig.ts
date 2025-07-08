@@ -1,29 +1,63 @@
-import { GameConfig } from '../types/GameTypes';
+import { GameConfig, HeroType } from '../types/GameTypes';
 
 export const GAME_CONFIG: GameConfig = {
   CANVAS_WIDTH: 800,
   CANVAS_HEIGHT: 600,
   GRID_SIZE: 32,
-  PLAYER_MOVE_SPEED: 500, // ms per cell
+  PLAYER_MOVE_SPEED: 500, // ms per cell (default, overridden by hero type)
   ENEMY_MOVE_SPEED: 800, // ms per cell
   PROJECTILE_SPEED: 200, // ms per cell (2x faster than player)
-  SHOOT_COOLDOWN: 300, // ms between shots
+  SHOOT_COOLDOWN: 300, // ms between shots (default, overridden by hero type)
   HIT_FLASH_DURATION: 200, // ms for hit flash effect
   DESTROY_FADE_DURATION: 500, // ms for enemy destroy fade
-  PLAYER_MAX_HEALTH: 3,
+  PLAYER_MAX_HEALTH: 3, // default, overridden by hero type
   ENEMY_MAX_HEALTH: 1,
 };
 
 export const GRID_COLS = Math.floor(GAME_CONFIG.CANVAS_WIDTH / GAME_CONFIG.GRID_SIZE);
 export const GRID_ROWS = Math.floor(GAME_CONFIG.CANVAS_HEIGHT / GAME_CONFIG.GRID_SIZE);
 
+// Hero Types
+export const HERO_TYPES: HeroType[] = [
+  {
+    id: 'warrior',
+    name: 'Warrior',
+    color: '#dc2626',
+    borderColor: '#991b1b',
+    maxHealth: 4,
+    moveSpeed: 500,
+    shootCooldown: 300,
+    description: 'Balanced fighter with good health and moderate speed',
+  },
+  {
+    id: 'scout',
+    name: 'Scout',
+    color: '#16a34a',
+    borderColor: '#15803d',
+    maxHealth: 2,
+    moveSpeed: 300,
+    shootCooldown: 200,
+    description: 'Fast and agile with quick shooting but low health',
+  },
+  {
+    id: 'tank',
+    name: 'Tank',
+    color: '#2563eb',
+    borderColor: '#1d4ed8',
+    maxHealth: 5,
+    moveSpeed: 700,
+    shootCooldown: 400,
+    description: 'Heavy armor with high health but slower movement',
+  },
+];
+
 // Colors
 export const COLORS = {
   GRID: '#e5e7eb',
   GRID_BORDER: '#d1d5db',
   BACKGROUND: '#f9fafb',
-  PLAYER: '#3b82f6',
-  PLAYER_BORDER: '#1e40af',
+  PLAYER: '#3b82f6', // Default, overridden by hero type
+  PLAYER_BORDER: '#1e40af', // Default, overridden by hero type
   PLAYER_PROJECTILE: '#60a5fa',
   ENEMY_PROJECTILE: '#ef4444',
   PATROL_RADIUS: 'rgba(255, 0, 0, 0.1)',

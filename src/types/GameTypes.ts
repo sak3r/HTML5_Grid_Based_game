@@ -49,6 +49,7 @@ export interface GameState {
   gameStatus: 'playing' | 'gameOver' | 'victory' | 'levelComplete' | 'paused';
   score: number;
   level: number;
+  selectedHeroType: HeroType | null;
 }
 
 export interface GameConfig {
@@ -60,3 +61,14 @@ export interface GameConfig {
   PROJECTILE_SPEED: number;
   SHOOT_COOLDOWN: number;
 }
+}
+
+export interface HeroType {
+  id: string;
+  name: string;
+  color: string;
+  borderColor: string;
+  maxHealth: number;
+  moveSpeed: number;
+  shootCooldown: number;
+  description: string;
